@@ -23,6 +23,11 @@ java {
     }
 }
 
+// Forza UTF-8 in compilazione: i testi di gioco contengono accenti italiani.
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+}
+
 // Entry point dell'applicazione: abilita ./gradlew run
 application {
     mainClass = "it.unicam.cs.mpgc.rpg126036.app.Main"
