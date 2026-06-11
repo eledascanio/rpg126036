@@ -121,6 +121,7 @@ public class GameEngine {
         Objects.requireNonNull(interazione, "L'interazione non puo' essere nulla.");
         InteractionResult risultato = interazione.esegui(stato.getPlayer());
         listeners.forEach(l -> l.onInteractionExecuted(risultato));
+        verificaGameOver();
         return risultato;
     }
 
@@ -139,6 +140,7 @@ public class GameEngine {
             Item item = oggetto.getItem();
             listeners.forEach(l -> l.onItemFound(item));
         }
+        verificaGameOver();
         return risultato;
     }
 
@@ -218,5 +220,29 @@ public class GameEngine {
             gameOverNotificato = true;
             listeners.forEach(GameListener::onGameOver);
         }
+    }
+
+    /**
+     * Controlla la condizione di sconfitta per energia esaurita e, se ricorre,
+     * notifica {@link GameListener#onGameOver()} (una sola volta). Va invocato
+     * dopo le azioni che consumano energia esterne al motore (ad es. la forza
+     * bruta di un enigma); le interazioni eseguite dal motore lo fanno gia'.
+     *
+     * @return {@code true} se ha appena segnalato il game over per energia
+     */
+    public boolean verificaGameOver() {
+        if (!gameOverNotificato && isEnergiaEsaurita()) {
+            gameOverNotificato = true;
+            listeners.forEach(GameListener::onGameOver);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return {@code true} se la partita e' persa per energia esaurita
+     */
+    public boolean isSconfitta() {
+        return isEnergiaEsaurita();
     }
 }

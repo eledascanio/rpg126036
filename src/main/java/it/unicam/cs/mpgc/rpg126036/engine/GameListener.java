@@ -57,7 +57,9 @@ public interface GameListener {
     }
 
     /**
-     * Invocato quando la partita termina.
+     * Invocato quando la partita termina, sia per vittoria (ultimo capitolo
+     * completato) sia per sconfitta (energia esaurita). La causa e' distinguibile
+     * tramite lo stato del motore.
      */
     default void onGameOver() {
     }
