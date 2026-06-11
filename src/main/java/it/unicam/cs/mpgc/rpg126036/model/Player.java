@@ -82,6 +82,20 @@ public class Player {
     }
 
     /**
+     * Riduce l'energia di una penalita' inevitabile, fermandosi a zero.
+     * A differenza di {@link #consumaEnergia(int)} si applica sempre, anche se
+     * l'energia disponibile non basta a coprire l'intero importo.
+     *
+     * @param quantita energia da sottrarre (non negativa)
+     */
+    public void riduciEnergia(int quantita) {
+        if (quantita < 0) {
+            throw new IllegalArgumentException("La quantita' di energia da ridurre non puo' essere negativa.");
+        }
+        energia = Math.max(0, energia - quantita);
+    }
+
+    /**
      * @param quantita energia richiesta
      * @return {@code true} se il personaggio dispone di energia sufficiente
      */
