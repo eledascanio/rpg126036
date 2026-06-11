@@ -137,6 +137,21 @@ public class Player {
         return true;
     }
 
+    /**
+     * Aumenta una statistica senza alcun costo in XP (ad es. la ricompensa di
+     * fine capitolo).
+     *
+     * @param tipo  la statistica da aumentare (non nulla)
+     * @param punti i punti da aggiungere (non negativi)
+     */
+    public void aumentaStatistica(StatType tipo, int punti) {
+        Objects.requireNonNull(tipo, "Il tipo di statistica non puo' essere nullo.");
+        if (punti < 0) {
+            throw new IllegalArgumentException("I punti da aggiungere non possono essere negativi.");
+        }
+        statistiche.merge(tipo, punti, Integer::sum);
+    }
+
     // ----------------------------------------------------------------------
     // Inventario
     // ----------------------------------------------------------------------

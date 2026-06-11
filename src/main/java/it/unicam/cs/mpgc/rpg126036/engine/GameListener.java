@@ -24,6 +24,15 @@ public interface GameListener {
     }
 
     /**
+     * Invocato al termine della sequenza di fine capitolo (dopo ripristino
+     * energia, upgrade e avanzamento).
+     *
+     * @param capitolo il capitolo appena concluso
+     */
+    default void onChapterCompleted(Chapter capitolo) {
+    }
+
+    /**
      * Invocato quando si avanza al capitolo successivo.
      *
      * @param capitolo il nuovo capitolo corrente

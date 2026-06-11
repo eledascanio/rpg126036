@@ -5,7 +5,9 @@ import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
 import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
 import it.unicam.cs.mpgc.rpg126036.model.Item;
+import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
+import it.unicam.cs.mpgc.rpg126036.model.StatType;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
 
 import java.util.ArrayList;
@@ -154,10 +156,36 @@ public class GameEngine {
             return false;
         }
         notificaSceneChanged();
-        if (capitolo.isCompletato()) {
-            avanzaCapitolo();
-        }
+        // Il passaggio al capitolo successivo non e' automatico: avviene tramite
+        // concludiCapitolo(...), che intercala ripristino energia e upgrade.
         verificaFinePartita();
+        return true;
+    }
+
+    /**
+     * Esegue la sequenza di fine capitolo quando il capitolo corrente e'
+     * completato ed esiste un capitolo successivo: ripristina l'energia al
+     * massimo, applica l'upgrade gratuito della statistica scelta, avanza al
+     * capitolo successivo e notifica {@link GameListener#onChapterCompleted(Chapter)}.
+     *
+     * @param statDaPotenziare la statistica scelta dal giocatore per il +1 (non nulla)
+     * @return {@code true} se la sequenza e' stata eseguita, {@code false} se il
+     *         capitolo non e' completato o e' l'ultimo della campagna
+     */
+    public boolean concludiCapitolo(StatType statDaPotenziare) {
+        Objects.requireNonNull(statDaPotenziare, "La statistica non puo' essere nulla.");
+        Chapter concluso = getCapitoloCorrente();
+        if (!concluso.isCompletato() || indiceCapitolo >= capitoli.size() - 1) {
+            return false;
+        }
+        // 2. ripristino energia al massimo (riposo tra i capitoli)
+        stato.getPlayer().ripristinaEnergia(Player.ENERGIA_MASSIMA);
+        // 3. upgrade gratuito della statistica scelta
+        stato.getPlayer().aumentaStatistica(statDaPotenziare, 1);
+        // 4. avanzamento al capitolo successivo
+        avanzaCapitolo();
+        // 5. evento di fine capitolo
+        listeners.forEach(l -> l.onChapterCompleted(concluso));
         return true;
     }
 
