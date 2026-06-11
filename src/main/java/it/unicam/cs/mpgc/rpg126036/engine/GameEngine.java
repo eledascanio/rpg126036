@@ -32,6 +32,7 @@ public class GameEngine {
 
     private int indiceCapitolo;
     private boolean gameOverNotificato;
+    private boolean inPausa;
 
     /**
      * @param stato    lo stato della partita (non nullo)
@@ -107,6 +108,38 @@ public class GameEngine {
     }
 
     // ----------------------------------------------------------------------
+    // Pausa
+    // ----------------------------------------------------------------------
+
+    /**
+     * Mette il gioco in pausa: finche' e' in pausa le interazioni e gli
+     * avanzamenti sono bloccati. Notifica {@link GameListener#onPaused()}.
+     */
+    public void pausa() {
+        if (!inPausa) {
+            inPausa = true;
+            listeners.forEach(GameListener::onPaused);
+        }
+    }
+
+    /**
+     * Riprende il gioco dalla pausa. Notifica {@link GameListener#onResumed()}.
+     */
+    public void riprendi() {
+        if (inPausa) {
+            inPausa = false;
+            listeners.forEach(GameListener::onResumed);
+        }
+    }
+
+    /**
+     * @return {@code true} se il gioco e' attualmente in pausa
+     */
+    public boolean isInPausa() {
+        return inPausa;
+    }
+
+    // ----------------------------------------------------------------------
     // Ciclo di gioco
     // ----------------------------------------------------------------------
 
@@ -119,6 +152,9 @@ public class GameEngine {
      */
     public InteractionResult esegui(Interaction interazione) {
         Objects.requireNonNull(interazione, "L'interazione non puo' essere nulla.");
+        if (inPausa) {
+            return new InteractionResult(false, "Gioco in pausa.", 0, 0);
+        }
         InteractionResult risultato = interazione.esegui(stato.getPlayer());
         listeners.forEach(l -> l.onInteractionExecuted(risultato));
         verificaGameOver();
@@ -134,6 +170,9 @@ public class GameEngine {
      */
     public InteractionResult raccogli(ItemInteraction oggetto) {
         Objects.requireNonNull(oggetto, "L'oggetto non puo' essere nullo.");
+        if (inPausa) {
+            return new InteractionResult(false, "Gioco in pausa.", 0, 0);
+        }
         boolean eraPresente = oggetto.isPresente();
         InteractionResult risultato = oggetto.raccogli(stato.getPlayer());
         if (eraPresente && risultato.successo()) {
@@ -153,6 +192,9 @@ public class GameEngine {
      * @return {@code true} se l'avanzamento e' avvenuto
      */
     public boolean avanza(String idScenaDestinazione) {
+        if (inPausa) {
+            return false;
+        }
         Chapter capitolo = getCapitoloCorrente();
         if (!capitolo.vaiA(idScenaDestinazione)) {
             return false;
@@ -176,6 +218,9 @@ public class GameEngine {
      */
     public boolean concludiCapitolo(StatType statDaPotenziare) {
         Objects.requireNonNull(statDaPotenziare, "La statistica non puo' essere nulla.");
+        if (inPausa) {
+            return false;
+        }
         Chapter concluso = getCapitoloCorrente();
         if (!concluso.isCompletato() || indiceCapitolo >= capitoli.size() - 1) {
             return false;

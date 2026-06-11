@@ -63,4 +63,18 @@ public interface GameListener {
      */
     default void onGameOver() {
     }
+
+    /**
+     * Invocato quando il gioco viene messo in pausa: la vista dovrebbe oscurare
+     * la schermata e mostrare l'indicatore di pausa.
+     */
+    default void onPaused() {
+    }
+
+    /**
+     * Invocato quando il gioco riprende dalla pausa: la vista dovrebbe
+     * ripristinare la schermata di gioco.
+     */
+    default void onResumed() {
+    }
 }
