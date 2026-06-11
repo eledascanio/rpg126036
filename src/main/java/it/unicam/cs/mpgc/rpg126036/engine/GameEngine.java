@@ -2,28 +2,34 @@ package it.unicam.cs.mpgc.rpg126036.engine;
 
 import it.unicam.cs.mpgc.rpg126036.interaction.Interaction;
 import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
+import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
+import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /**
  * Motore del ciclo di gioco. Coordina l'avanzamento tra scene e capitoli e
- * l'esecuzione delle interazioni sullo {@link GameState}.
+ * l'esecuzione delle interazioni sullo {@link GameState}, notificando gli eventi
+ * ai {@link GameListener} registrati (pattern Observer).
  *
  * <p>Non gestisce l'input/output: espone le operazioni che il controller invoca
  * nel proprio loop (mostra stato &rarr; raccoglie la scelta &rarr; esegue &rarr;
  * aggiorna). Le interazioni applicano da sole il consumo di energia e gli XP; il
- * motore ne restituisce l'esito.</p>
+ * motore ne restituisce l'esito e ne notifica gli eventi.</p>
  */
 public class GameEngine {
 
     private final GameState stato;
     private final List<Chapter> capitoli;
+    private final List<GameListener> listeners = new ArrayList<>();
 
     private int indiceCapitolo;
+    private boolean gameOverNotificato;
 
     /**
      * @param stato    lo stato della partita (non nullo)
@@ -40,74 +46,55 @@ public class GameEngine {
         this.stato.setCapitoloCorrente(this.capitoli.get(0));
     }
 
+    // ----------------------------------------------------------------------
+    // Registrazione osservatori
+    // ----------------------------------------------------------------------
+
     /**
-     * @return lo stato della partita
+     * Registra un osservatore degli eventi di gioco.
+     *
+     * @param listener l'osservatore (non nullo)
      */
+    public void addListener(GameListener listener) {
+        listeners.add(Objects.requireNonNull(listener, "Il listener non puo' essere nullo."));
+    }
+
+    /**
+     * Rimuove un osservatore precedentemente registrato.
+     *
+     * @param listener l'osservatore da rimuovere
+     * @return {@code true} se era registrato
+     */
+    public boolean removeListener(GameListener listener) {
+        return listeners.remove(listener);
+    }
+
+    // ----------------------------------------------------------------------
+    // Stato corrente
+    // ----------------------------------------------------------------------
+
     public GameState getStato() {
         return stato;
     }
 
-    /**
-     * @return il capitolo attualmente in corso
-     */
     public Chapter getCapitoloCorrente() {
         return capitoli.get(indiceCapitolo);
     }
 
-    /**
-     * @return la scena corrente del capitolo in corso
-     */
     public Scene getScenaCorrente() {
         return getCapitoloCorrente().getScenaCorrente();
     }
 
-    /**
-     * @return le transizioni percorribili dalla scena corrente
-     */
     public List<Transition> transizioniDisponibili() {
         return getScenaCorrente().getTransizioni();
     }
 
-    /**
-     * Esegue un'interazione applicandone gli effetti al giocatore.
-     *
-     * @param interazione l'interazione da eseguire (non nulla)
-     * @return l'esito dell'interazione
-     */
-    public InteractionResult esegui(Interaction interazione) {
-        Objects.requireNonNull(interazione, "L'interazione non puo' essere nulla.");
-        return interazione.esegui(stato.getPlayer());
+    public int getEnergia() {
+        return stato.getPlayer().getEnergia();
     }
 
-    /**
-     * Avanza verso la scena destinazione seguendo un arco della scena corrente.
-     * Se l'avanzamento conclude il capitolo, passa automaticamente al capitolo
-     * successivo (se presente).
-     *
-     * @param idScenaDestinazione id della scena verso cui spostarsi
-     * @return {@code true} se l'avanzamento e' avvenuto
-     */
-    public boolean avanza(String idScenaDestinazione) {
-        Chapter capitolo = getCapitoloCorrente();
-        boolean mosso = capitolo.vaiA(idScenaDestinazione);
-        if (mosso && capitolo.isCompletato()) {
-            avanzaCapitolo();
-        }
-        return mosso;
-    }
-
-    /**
-     * Passa al capitolo successivo, se il corrente e' completato e ne esiste uno.
-     *
-     * @return {@code true} se il passaggio e' avvenuto
-     */
-    public boolean avanzaCapitolo() {
-        if (indiceCapitolo < capitoli.size() - 1 && getCapitoloCorrente().isCompletato()) {
-            indiceCapitolo++;
-            stato.setCapitoloCorrente(capitoli.get(indiceCapitolo));
-            return true;
-        }
-        return false;
+    public boolean isEnergiaEsaurita() {
+        return stato.getPlayer().getEnergia() <= 0;
     }
 
     /**
@@ -117,21 +104,91 @@ public class GameEngine {
         return indiceCapitolo == capitoli.size() - 1 && getCapitoloCorrente().isCompletato();
     }
 
+    // ----------------------------------------------------------------------
+    // Ciclo di gioco
+    // ----------------------------------------------------------------------
+
     /**
-     * @return l'energia corrente del giocatore
+     * Esegue un'interazione applicandone gli effetti al giocatore e notifica
+     * l'evento {@link GameListener#onInteractionExecuted(InteractionResult)}.
+     *
+     * @param interazione l'interazione da eseguire (non nulla)
+     * @return l'esito dell'interazione
      */
-    public int getEnergia() {
-        return stato.getPlayer().getEnergia();
+    public InteractionResult esegui(Interaction interazione) {
+        Objects.requireNonNull(interazione, "L'interazione non puo' essere nulla.");
+        InteractionResult risultato = interazione.esegui(stato.getPlayer());
+        listeners.forEach(l -> l.onInteractionExecuted(risultato));
+        return risultato;
     }
 
     /**
-     * Indica se il giocatore e' rimasto senza energia. Nota: nel design attuale
-     * questa condizione non interrompe la partita (lo sblocco di forza bruta
-     * evita gli stalli), ma e' esposta per il controller/la vista.
+     * Raccoglie un oggetto dalla scena, aggiornando l'inventario e notificando
+     * {@link GameListener#onItemFound(Item)} se la raccolta ha successo.
      *
-     * @return {@code true} se l'energia e' a zero
+     * @param oggetto l'oggetto interagibile presente nella scena (non nullo)
+     * @return l'esito della raccolta
      */
-    public boolean isEnergiaEsaurita() {
-        return stato.getPlayer().getEnergia() <= 0;
+    public InteractionResult raccogli(ItemInteraction oggetto) {
+        Objects.requireNonNull(oggetto, "L'oggetto non puo' essere nullo.");
+        boolean eraPresente = oggetto.isPresente();
+        InteractionResult risultato = oggetto.raccogli(stato.getPlayer());
+        if (eraPresente && risultato.successo()) {
+            Item item = oggetto.getItem();
+            listeners.forEach(l -> l.onItemFound(item));
+        }
+        return risultato;
+    }
+
+    /**
+     * Avanza verso la scena destinazione seguendo un arco della scena corrente.
+     * Notifica il cambio di scena e, se il capitolo si conclude, l'eventuale
+     * avanzamento di capitolo e la fine partita.
+     *
+     * @param idScenaDestinazione id della scena verso cui spostarsi
+     * @return {@code true} se l'avanzamento e' avvenuto
+     */
+    public boolean avanza(String idScenaDestinazione) {
+        Chapter capitolo = getCapitoloCorrente();
+        if (!capitolo.vaiA(idScenaDestinazione)) {
+            return false;
+        }
+        notificaSceneChanged();
+        if (capitolo.isCompletato()) {
+            avanzaCapitolo();
+        }
+        verificaFinePartita();
+        return true;
+    }
+
+    /**
+     * Passa al capitolo successivo, se il corrente e' completato e ne esiste uno,
+     * notificando l'avanzamento di capitolo e il relativo cambio di scena.
+     *
+     * @return {@code true} se il passaggio e' avvenuto
+     */
+    public boolean avanzaCapitolo() {
+        if (indiceCapitolo < capitoli.size() - 1 && getCapitoloCorrente().isCompletato()) {
+            indiceCapitolo++;
+            Chapter nuovo = capitoli.get(indiceCapitolo);
+            stato.setCapitoloCorrente(nuovo);
+            listeners.forEach(l -> l.onChapterAdvanced(nuovo));
+            notificaSceneChanged();
+            verificaFinePartita();
+            return true;
+        }
+        return false;
+    }
+
+    private void notificaSceneChanged() {
+        Scene scena = getScenaCorrente();
+        listeners.forEach(l -> l.onSceneChanged(scena));
+    }
+
+    private void verificaFinePartita() {
+        if (!gameOverNotificato && isPartitaTerminata()) {
+            gameOverNotificato = true;
+            listeners.forEach(GameListener::onGameOver);
+        }
     }
 }
