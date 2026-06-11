@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Definizione del Capitolo 1. Struttura narrativa provvisoria: scene e
+     collegamenti sono personalizzabili; i riferimenti ai contenuti usano gli id
+     di NpcCatalog e ItemCatalog. -->
+<capitolo id="capitolo1" titolo="Capitolo 1: Il ritrovamento" scenaIniziale="ingresso">
+
+    <scena id="ingresso" titolo="Ingresso del Polo"
+           descrizione="Arrivi di corsa al Polo. C'è agitazione tra gli studenti: qualcosa di grave è appena successo.">
+        <transizione etichetta="Avvicinati al corridoio" destinazione="corridoio"/>
+    </scena>
+
+    <scena id="corridoio" titolo="Corridoio"
+           descrizione="Nel corridoio si accalcano alcuni studenti sconvolti. A terra, vicino al muro, intravedi qualcosa di luccicante.">
+        <npc ref="informatore"/>
+        <npc ref="studente_panico"/>
+        <npc ref="studente_esame_1"/>
+        <npc ref="studente_esame_2"/>
+        <oggetto ref="chiave_capitolo1"/>
+    </scena>
+
+</capitolo>
