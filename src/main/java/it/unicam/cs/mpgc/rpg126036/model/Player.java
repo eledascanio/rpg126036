@@ -28,6 +28,9 @@ public class Player {
     private int energia;
     private int xp;
 
+    // Inventario predisposto per sviluppi futuri: nella demo resta vuoto e non mostrato.
+    private final Inventory inventario = new Inventory();
+
     /**
      * Crea un nuovo personaggio con le statistiche iniziali della classe scelta,
      * energia al massimo e nessun XP accumulato.
@@ -118,6 +121,27 @@ public class Player {
         xp -= COSTO_XP_POTENZIAMENTO;
         statistiche.merge(tipo, 1, Integer::sum);
         return true;
+    }
+
+    // ----------------------------------------------------------------------
+    // Inventario
+    // ----------------------------------------------------------------------
+
+    /**
+     * Raccoglie un oggetto aggiungendolo all'inventario.
+     *
+     * @param item l'oggetto raccolto (non nullo)
+     * @return {@code true} se aggiunto, {@code false} se gia' posseduto
+     */
+    public boolean raccogli(Item item) {
+        return inventario.aggiungi(item);
+    }
+
+    /**
+     * @return l'inventario del personaggio
+     */
+    public Inventory getInventario() {
+        return inventario;
     }
 
     // ----------------------------------------------------------------------
