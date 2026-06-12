@@ -1,48 +1,104 @@
 package it.unicam.cs.mpgc.rpg126036.view;
 
 import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundImage;
+import javafx.scene.layout.BackgroundPosition;
+import javafx.scene.layout.BackgroundRepeat;
+import javafx.scene.layout.BackgroundSize;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
+import java.io.InputStream;
 import java.util.Objects;
 
 /**
- * Schermata principale (Home): titolo del gioco e le opzioni di avvio.
+ * Schermata principale (Home) in stile noir/terminale: immagine di sfondo con un
+ * velo scuro per la leggibilità, titolo, menu e riquadri decorativi.
  *
- * <p>Le voci "Nuova partita" e "Carica partita" rimandano per ora a una
- * schermata segnaposto: verranno collegate alle rispettive viste (creazione
- * personaggio e selezione slot) quando saranno realizzate. "Esci" chiude
- * l'applicazione.</p>
+ * <p>"Nuova partita" porta alla {@link CharacterCreationView}; "Carica partita"
+ * rimanda per ora a una schermata segnaposto; "Esci" chiude l'applicazione. Lo
+ * stile è definito nel foglio {@code /css/app.css} tramite gli styleClass.</p>
  */
 public class HomeView {
 
-    private final VBox root;
+    /** Risorsa dell'immagine di sfondo della Home. */
+    private static final String SFONDO = "/images/home-background.jpg";
 
-    public HomeView(ViewNavigator navigator) {
-        Objects.requireNonNull(navigator, "Il navigator non puo' essere nullo.");
+    private final AppContext context;
+    private final StackPane root;
 
-        Label titolo = new Label("CAMERINO FILES");
-        titolo.setStyle("-fx-font-size: 48px; -fx-font-weight: bold; -fx-text-fill: #c0392b;");
+    public HomeView(AppContext context) {
+        this.context = Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
 
-        Button nuova = pulsante("Nuova partita");
-        Button carica = pulsante("Carica partita");
-        Button esci = pulsante("Esci");
-
-        nuova.setOnAction(e -> navigator.mostra(new PlaceholderView(navigator, "Nuova partita").getRoot()));
-        carica.setOnAction(e -> navigator.mostra(new PlaceholderView(navigator, "Carica partita").getRoot()));
-        esci.setOnAction(e -> Platform.exit());
-
-        root = new VBox(16, titolo, nuova, carica, esci);
-        root.setAlignment(Pos.CENTER);
-        root.setStyle("-fx-background-color: #111111;");
+        root = new StackPane();
+        root.getStyleClass().add("screen-root");
+        root.getChildren().addAll(livelloSfondo(), livelloVelo(), livelloContenuto());
     }
 
-    private Button pulsante(String testo) {
+    /** Immagine di sfondo ridimensionata a coprire l'intera area. */
+    private Region livelloSfondo() {
+        Region sfondo = new Region();
+        InputStream risorsa = getClass().getResourceAsStream(SFONDO);
+        if (risorsa != null) {
+            BackgroundSize cover = new BackgroundSize(
+                    BackgroundSize.AUTO, BackgroundSize.AUTO, false, false, false, true);
+            sfondo.setBackground(new Background(new BackgroundImage(new Image(risorsa),
+                    BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT,
+                    BackgroundPosition.CENTER, cover)));
+        }
+        return sfondo;
+    }
+
+    /** Velo scuro sopra l'immagine, per il contrasto del testo. */
+    private Region livelloVelo() {
+        Region velo = new Region();
+        velo.getStyleClass().add("background-veil");
+        return velo;
+    }
+
+    /** Strato dei contenuti: titolo, menu, riquadro terminale e footer. */
+    private BorderPane livelloContenuto() {
+        Label titolo = new Label("CAMERINO FILES");
+        titolo.getStyleClass().add("title");
+
+        Label sottotitolo = new Label("— SYSTEM STATUS: CRITICAL —");
+        sottotitolo.getStyleClass().add("subtitle");
+
+        VBox intestazione = new VBox(8, titolo, sottotitolo);
+        intestazione.setAlignment(Pos.CENTER);
+
+        VBox menu = new VBox(12,
+                voceMenu("Nuova Partita", e -> context.navigator()
+                        .mostra(new CharacterCreationView(context).getRoot())),
+                voceMenu("Carica Partita", e -> context.navigator()
+                        .mostra(new PlaceholderView(context, "Carica partita — in costruzione").getRoot())),
+                voceMenu("Esci", e -> Platform.exit()));
+        menu.setAlignment(Pos.CENTER);
+        menu.setMaxWidth(320);
+
+        VBox centro = new VBox(40, intestazione, menu);
+        centro.setAlignment(Pos.CENTER);
+
+        BorderPane contenuto = new BorderPane();
+        contenuto.setCenter(centro);
+        contenuto.setPadding(new Insets(32));
+        return contenuto;
+    }
+
+    private Button voceMenu(String testo, javafx.event.EventHandler<javafx.event.ActionEvent> azione) {
         Button pulsante = new Button(testo);
-        pulsante.setPrefWidth(240);
+        pulsante.getStyleClass().add("menu-button");
+        pulsante.setMaxWidth(Double.MAX_VALUE);
+        pulsante.setOnAction(azione);
         return pulsante;
     }
 

@@ -10,23 +10,23 @@ import java.util.Objects;
 
 /**
  * Schermata segnaposto temporanea, usata dallo scheletro della GUI per le viste
- * non ancora realizzate. Mostra il nome della schermata di destinazione e un
- * pulsante per tornare alla {@link HomeView}.
+ * non ancora realizzate o per messaggi di conferma. Mostra un testo e un pulsante
+ * per tornare alla {@link HomeView}.
  */
 public class PlaceholderView {
 
     private final VBox root;
 
-    public PlaceholderView(ViewNavigator navigator, String titoloSchermata) {
-        Objects.requireNonNull(navigator, "Il navigator non puo' essere nullo.");
-        Objects.requireNonNull(titoloSchermata, "Il titolo non puo' essere nullo.");
+    public PlaceholderView(AppContext context, String messaggio) {
+        Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
+        Objects.requireNonNull(messaggio, "Il messaggio non puo' essere nullo.");
 
-        Label etichetta = new Label(titoloSchermata + " — in costruzione");
+        Label etichetta = new Label(messaggio);
         etichetta.setStyle("-fx-font-size: 24px; -fx-text-fill: #ecf0f1;");
 
-        Button indietro = new Button("Indietro");
-        indietro.setPrefWidth(160);
-        indietro.setOnAction(e -> navigator.mostra(new HomeView(navigator).getRoot()));
+        Button indietro = new Button("Torna alla Home");
+        indietro.setPrefWidth(180);
+        indietro.setOnAction(e -> context.navigator().mostra(new HomeView(context).getRoot()));
 
         root = new VBox(20, etichetta, indietro);
         root.setAlignment(Pos.CENTER);

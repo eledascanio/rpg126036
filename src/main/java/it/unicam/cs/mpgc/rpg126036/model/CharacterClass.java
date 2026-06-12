@@ -1,6 +1,7 @@
 package it.unicam.cs.mpgc.rpg126036.model;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -69,5 +70,16 @@ public enum CharacterClass {
      */
     public Map<StatType, Integer> getStatisticheIniziali() {
         return Collections.unmodifiableMap(statisticheIniziali);
+    }
+
+    /**
+     * @return la statistica caratterizzante della classe, ossia quella su cui
+     *         viene assegnato il bonus iniziale.
+     */
+    public StatType statisticaPrincipale() {
+        return statisticheIniziali.entrySet().stream()
+                .max(Comparator.comparingInt(Map.Entry::getValue))
+                .map(Map.Entry::getKey)
+                .orElseThrow();
     }
 }

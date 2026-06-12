@@ -46,4 +46,11 @@ class CharacterClassTest {
         assertEquals("Rappresentante degli studenti", CharacterClass.RAPPRESENTANTE_STUDENTI.getNomeVisualizzato());
         assertEquals("Organizzatore di eventi", CharacterClass.ORGANIZZATORE_EVENTI.getNomeVisualizzato());
     }
+
+    @Test
+    void laStatisticaPrincipaleEQuellaConIlBonus() {
+        assertEquals(StatType.INVESTIGAZIONE, CharacterClass.STUDENTE_MODELLO.statisticaPrincipale());
+        assertEquals(StatType.CARISMA, CharacterClass.RAPPRESENTANTE_STUDENTI.statisticaPrincipale());
+        assertEquals(StatType.INTUIZIONE, CharacterClass.ORGANIZZATORE_EVENTI.statisticaPrincipale());
+    }
 }
