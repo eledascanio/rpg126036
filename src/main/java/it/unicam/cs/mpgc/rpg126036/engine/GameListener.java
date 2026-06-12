@@ -2,6 +2,7 @@ package it.unicam.cs.mpgc.rpg126036.engine;
 
 import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
+import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
 
@@ -46,6 +47,15 @@ public interface GameListener {
      * @param item l'oggetto trovato
      */
     default void onItemFound(Item item) {
+    }
+
+    /**
+     * Invocato quando un nuovo indizio viene scoperto: la vista dovrebbe
+     * aggiornare il diario e segnalare l'informazione acquisita.
+     *
+     * @param indizio l'indizio scoperto
+     */
+    default void onClueFound(Clue indizio) {
     }
 
     /**

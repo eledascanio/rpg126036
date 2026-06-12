@@ -3,6 +3,7 @@ package it.unicam.cs.mpgc.rpg126036.persistence;
 import it.unicam.cs.mpgc.rpg126036.engine.GameState;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
 import it.unicam.cs.mpgc.rpg126036.model.CharacterClass;
+import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
@@ -31,10 +32,14 @@ import java.util.stream.Stream;
 
 /**
  * Implementazione XML di {@link SaveRepository}. Serializza l'intero
- * {@link GameState} (giocatore, flag e capitolo corrente con le sue scene) in un
- * file {@code <nome>.xml} nella cartella dei salvataggi, di default sotto la home
- * dell'utente. Il salvataggio e' autosufficiente: il caricamento non dipende da
- * altre componenti del gioco.
+ * {@link GameState} (giocatore con inventario e diario degli indizi, flag e
+ * capitolo corrente con le sue scene) in un file {@code <nome>.xml} nella cartella
+ * dei salvataggi, di default sotto la home dell'utente. Il salvataggio e'
+ * autosufficiente: il caricamento non dipende da altre componenti del gioco.
+ *
+ * <p>La serializzazione e la deserializzazione delle collezioni del giocatore
+ * (inventario, diario) sono isolate in metodi privati dedicati e simmetrici, in
+ * modo che ogni struttura dati abbia un unico punto di mappatura verso l'XML.</p>
  */
 public class XmlSaveRepository implements SaveRepository {
 
@@ -143,15 +148,8 @@ public class XmlSaveRepository implements SaveRepository {
             statistiche.appendChild(stat);
         }
         player.appendChild(statistiche);
-        Element inventario = doc.createElement("inventario");
-        for (Item item : p.getInventario().getOggetti()) {
-            Element el = doc.createElement("item");
-            el.setAttribute("id", item.id());
-            el.setAttribute("nome", item.nome());
-            el.setAttribute("descrizione", item.descrizione());
-            inventario.appendChild(el);
-        }
-        player.appendChild(inventario);
+        player.appendChild(serializzaInventario(doc, p));
+        player.appendChild(serializzaDiario(doc, p));
         root.appendChild(player);
 
         Element flag = doc.createElement("flag");
@@ -186,6 +184,38 @@ public class XmlSaveRepository implements SaveRepository {
             capitolo.appendChild(el);
         }
         return capitolo;
+    }
+
+    /**
+     * Serializza l'inventario del giocatore in un elemento {@code <inventario>}
+     * con un {@code <item>} (id, nome, descrizione) per ogni oggetto.
+     */
+    private Element serializzaInventario(Document doc, Player p) {
+        Element inventario = doc.createElement("inventario");
+        for (Item item : p.getInventario().getOggetti()) {
+            Element el = doc.createElement("item");
+            el.setAttribute("id", item.id());
+            el.setAttribute("nome", item.nome());
+            el.setAttribute("descrizione", item.descrizione());
+            inventario.appendChild(el);
+        }
+        return inventario;
+    }
+
+    /**
+     * Serializza il diario degli indizi in un elemento {@code <diario>} con un
+     * {@code <indizio>} (id, titolo, testo) per ogni indizio scoperto.
+     */
+    private Element serializzaDiario(Document doc, Player p) {
+        Element diario = doc.createElement("diario");
+        for (Clue indizio : p.getDiario().getIndizi()) {
+            Element el = doc.createElement("indizio");
+            el.setAttribute("id", indizio.id());
+            el.setAttribute("titolo", indizio.titolo());
+            el.setAttribute("testo", indizio.testo());
+            diario.appendChild(el);
+        }
+        return diario;
     }
 
     // ----------------------------------------------------------------------
@@ -241,17 +271,43 @@ public class XmlSaveRepository implements SaveRepository {
                 }
             }
         }
-        // Inventario.
-        Element inventario = primoElemento(playerEl, "inventario");
-        if (inventario != null) {
-            NodeList items = inventario.getElementsByTagName("item");
-            for (int i = 0; i < items.getLength(); i++) {
-                Element it = (Element) items.item(i);
-                player.raccogli(new Item(it.getAttribute("id"), it.getAttribute("nome"),
-                        it.getAttribute("descrizione")));
-            }
-        }
+        deserializzaInventario(playerEl, player);
+        deserializzaDiario(playerEl, player);
         return player;
+    }
+
+    /**
+     * Ripopola l'inventario del giocatore dagli elementi {@code <item>} contenuti
+     * nel {@code <inventario>}, se presente.
+     */
+    private void deserializzaInventario(Element playerEl, Player player) {
+        Element inventario = primoElemento(playerEl, "inventario");
+        if (inventario == null) {
+            return;
+        }
+        NodeList items = inventario.getElementsByTagName("item");
+        for (int i = 0; i < items.getLength(); i++) {
+            Element it = (Element) items.item(i);
+            player.raccogli(new Item(it.getAttribute("id"), it.getAttribute("nome"),
+                    it.getAttribute("descrizione")));
+        }
+    }
+
+    /**
+     * Ripopola il diario del giocatore dagli elementi {@code <indizio>} contenuti
+     * nel {@code <diario>}, se presente.
+     */
+    private void deserializzaDiario(Element playerEl, Player player) {
+        Element diario = primoElemento(playerEl, "diario");
+        if (diario == null) {
+            return;
+        }
+        NodeList indizi = diario.getElementsByTagName("indizio");
+        for (int i = 0; i < indizi.getLength(); i++) {
+            Element ind = (Element) indizi.item(i);
+            player.scopriIndizio(new Clue(ind.getAttribute("id"), ind.getAttribute("titolo"),
+                    ind.getAttribute("testo")));
+        }
     }
 
     private Chapter deserializzaCapitolo(Element capitoloEl) {

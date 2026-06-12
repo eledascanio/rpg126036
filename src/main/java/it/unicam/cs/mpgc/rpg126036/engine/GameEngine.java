@@ -4,6 +4,7 @@ import it.unicam.cs.mpgc.rpg126036.interaction.Interaction;
 import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
 import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
+import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
@@ -184,6 +185,28 @@ public class GameEngine {
         verificaGameOver();
         verificaUpgradeDisponibile();
         return risultato;
+    }
+
+    /**
+     * Registra un indizio scoperto nel diario del giocatore e, se l'indizio e'
+     * nuovo, notifica {@link GameListener#onClueFound(Clue)}. A differenza degli
+     * oggetti, gli indizi non sono raccolti da una scena ma sbloccati da dialoghi
+     * o enigmi; l'eventuale guadagno di XP associato e' applicato a parte dalla
+     * relativa interazione.
+     *
+     * @param indizio l'indizio scoperto (non nullo)
+     * @return {@code true} se l'indizio era nuovo ed e' stato registrato
+     */
+    public boolean trovaIndizio(Clue indizio) {
+        Objects.requireNonNull(indizio, "L'indizio non puo' essere nullo.");
+        if (inPausa) {
+            return false;
+        }
+        boolean nuovo = stato.getPlayer().scopriIndizio(indizio);
+        if (nuovo) {
+            listeners.forEach(l -> l.onClueFound(indizio));
+        }
+        return nuovo;
     }
 
     /**

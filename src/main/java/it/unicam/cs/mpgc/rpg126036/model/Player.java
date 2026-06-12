@@ -31,6 +31,9 @@ public class Player {
     // Inventario predisposto per sviluppi futuri: nella demo resta vuoto e non mostrato.
     private final Inventory inventario = new Inventory();
 
+    // Diario degli indizi: i "flag di conoscenza" raccolti durante l'indagine.
+    private final ClueJournal diario = new ClueJournal();
+
     /**
      * Crea un nuovo personaggio con le statistiche iniziali della classe scelta,
      * energia al massimo e nessun XP accumulato.
@@ -171,6 +174,23 @@ public class Player {
      */
     public Inventory getInventario() {
         return inventario;
+    }
+
+    /**
+     * Registra un indizio scoperto nel diario.
+     *
+     * @param indizio l'indizio scoperto (non nullo)
+     * @return {@code true} se nuovo, {@code false} se gia' noto
+     */
+    public boolean scopriIndizio(Clue indizio) {
+        return diario.aggiungi(indizio);
+    }
+
+    /**
+     * @return il diario degli indizi del personaggio
+     */
+    public ClueJournal getDiario() {
+        return diario;
     }
 
     // ----------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package it.unicam.cs.mpgc.rpg126036.engine;
 
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
+import it.unicam.cs.mpgc.rpg126036.model.ClueJournal;
 import it.unicam.cs.mpgc.rpg126036.model.Inventory;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
@@ -58,6 +59,13 @@ public class GameState {
      */
     public Inventory getInventario() {
         return player.getInventario();
+    }
+
+    /**
+     * @return il diario degli indizi del giocatore
+     */
+    public ClueJournal getDiario() {
+        return player.getDiario();
     }
 
     /**
