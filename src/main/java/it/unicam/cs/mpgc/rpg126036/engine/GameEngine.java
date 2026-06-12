@@ -37,18 +37,36 @@ public class GameEngine {
     private boolean upgradeNotificato;
 
     /**
+     * Crea il motore per una nuova partita, posizionato sul primo capitolo.
+     *
      * @param stato    lo stato della partita (non nullo)
      * @param capitoli la sequenza ordinata dei capitoli della campagna (non nulla, non vuota)
      */
     public GameEngine(GameState stato, List<Chapter> capitoli) {
+        this(stato, capitoli, 0);
+    }
+
+    /**
+     * Crea il motore posizionato su un capitolo specifico, per riprendere una
+     * partita salvata. Il capitolo all'indice indicato dovrebbe gia' riflettere il
+     * progresso salvato (scene completate, scena corrente).
+     *
+     * @param stato           lo stato della partita (non nullo)
+     * @param capitoli        la sequenza ordinata dei capitoli (non nulla, non vuota)
+     * @param indiceIniziale  indice del capitolo da cui ripartire
+     */
+    public GameEngine(GameState stato, List<Chapter> capitoli, int indiceIniziale) {
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         Objects.requireNonNull(capitoli, "I capitoli non possono essere nulli.");
         if (capitoli.isEmpty()) {
             throw new IllegalArgumentException("La campagna deve avere almeno un capitolo.");
         }
         this.capitoli = List.copyOf(capitoli);
-        this.indiceCapitolo = 0;
-        this.stato.setCapitoloCorrente(this.capitoli.get(0));
+        if (indiceIniziale < 0 || indiceIniziale >= this.capitoli.size()) {
+            throw new IllegalArgumentException("Indice di capitolo non valido: " + indiceIniziale);
+        }
+        this.indiceCapitolo = indiceIniziale;
+        this.stato.setCapitoloCorrente(this.capitoli.get(indiceIniziale));
     }
 
     // ----------------------------------------------------------------------
