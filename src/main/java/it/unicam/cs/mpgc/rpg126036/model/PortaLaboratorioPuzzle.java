@@ -5,8 +5,9 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Enigma della porta del laboratorio (livello 2): una combinazione di quattro
- * cifre che corrisponde all'anno di fondazione di Unicam ({@value #SOLUZIONE}).
+ * Enigma della porta del laboratorio (scena finale del capitolo 1): una
+ * combinazione di quattro cifre che corrisponde all'anno di fondazione di Unicam
+ * ({@value #SOLUZIONE}). Risolverlo apre l'aula LA1 e conclude il capitolo.
  *
  * <p>Con una statistica pari almeno a {@value #SOGLIA_STAT} il giocatore ottiene
  * un indizio (Investigazione, Intuizione o Carisma). In assenza di indizi resta

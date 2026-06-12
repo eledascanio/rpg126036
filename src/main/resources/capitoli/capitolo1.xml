@@ -16,6 +16,15 @@
         <npc ref="studente_esame_1"/>
         <npc ref="studente_esame_2"/>
         <oggetto ref="chiave_capitolo1"/>
+        <transizione etichetta="Raggiungi il cortile" destinazione="cortile"/>
+    </scena>
+
+    <!-- Scena finale del capitolo: l'enigma della porta sbarra l'accesso all'aula
+         LA1. Risolverlo (codice o forza bruta) e' l'unico modo per completare il
+         capitolo; il capitolo 2 ripartira' direttamente all'interno dell'aula. -->
+    <scena id="cortile" titolo="Cortile del Polo"
+           descrizione="Attraversi il cortile fino alla porta dell'aula LA1, il laboratorio dove Antonio passava le sue giornate. La porta e' chiusa: un tastierino numerico ne blocca l'accesso.">
+        <enigma ref="porta_laboratorio"/>
     </scena>
 
 </capitolo>
