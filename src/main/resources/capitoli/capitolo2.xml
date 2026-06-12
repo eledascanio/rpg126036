@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Definizione del Capitolo 2: Aula LA1. Il giocatore accede al PC della vittima
+     e scopre l'email minatoria. I riferimenti usano gli id di NpcCatalog e degli
+     enigmi (Puzzle). La logica condizionale (vie per statistica, indizi, costi di
+     energia) vive nelle classi di model e nella logica di gioco, non nell'XML. -->
+<capitolo id="capitolo2" titolo="Capitolo 2: L'aula LA1" scenaIniziale="aula_la1">
+
+    <scena id="aula_la1" titolo="Aula LA1"
+           descrizione="Sei dentro il laboratorio. Vari computer sono accesi: cliccarne uno a caso fa solo perdere tempo (ed energia). Da qualche parte c'è il PC di Antonio.">
+        <!-- Assistente di laboratorio: con Carisma >= 2 rivela la password (indizio). -->
+        <npc ref="tecnico_laboratorio"/>
+        <!-- Enigma del PC della vittima: vie per Investigazione/Carisma/Intuizione
+             e forza bruta. Sbloccarlo da' accesso all'email. -->
+        <enigma ref="pc_vittima"/>
+        <transizione etichetta="Apri l'ultima email" destinazione="email_vittima"/>
+    </scena>
+
+    <!-- Scena finale del capitolo: l'email minatoria del mittente em.informatica@gmail.com.
+         L'indizio "email_mittente" e' assegnato dalla logica di gioco. -->
+    <scena id="email_vittima" titolo="L'email minatoria"
+           descrizione="Accedi al PC. Una mail minatoria fissava un incontro in Aula B alle 00:30. Il mittente: em.informatica@gmail.com. Due iniziali (E. M.)... ma non corrispondono ad Alex.">
+    </scena>
+
+</capitolo>

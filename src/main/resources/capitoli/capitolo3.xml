@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Definizione del Capitolo 3: Aula B. Dal cortile il giocatore raggiunge l'Aula
+     B e ne trova gli indizi. La porta si supera per tre vie (Carisma/Investigazione/
+     Intuizione) o perquisendo l'aula; tutta questa logica condizionale vive nelle
+     classi e nella logica di gioco. L'XML monta solo le scene e i riferimenti.
+     L'ultima scena e' terminale: il suo completamento conclude la campagna
+     (TO BE CONTINUED / onGameCompleted). -->
+<capitolo id="capitolo3" titolo="Capitolo 3: L'aula B" scenaIniziale="cortile">
+
+    <scena id="cortile" titolo="Cortile del Polo"
+           descrizione="Torni nel cortile. «Ok, ora devo dirigermi all'altro edificio per entrare in Aula B.»">
+        <transizione etichetta="Vai verso l'Aula B" destinazione="ingresso_aula_b"/>
+    </scena>
+
+    <scena id="ingresso_aula_b" titolo="Ingresso dell'Aula B"
+           descrizione="La porta dell'aula è bloccata. Puoi tentare di forzarla (costa energia) oppure cavartela in altro modo.">
+        <!-- Addetto alle pulizie: con Carisma alto ti fa entrare gratis e da' l'indizio. -->
+        <npc ref="addetto_pulizie"/>
+        <transizione etichetta="Entra nell'Aula B" destinazione="aula_b"/>
+    </scena>
+
+    <!-- Scena finale della campagna: al buio si trovano gli indizi (orologio inciso
+         per Investigazione, tessuto strappato per Intuizione) o si perquisisce l'aula. -->
+    <scena id="aula_b" titolo="Aula B"
+           descrizione="Sei dentro l'Aula B, al buio. Da qualche parte ci sono le tracce dell'incontro: un orologio rotto, un lembo di tessuto strappato...">
+    </scena>
+
+</capitolo>

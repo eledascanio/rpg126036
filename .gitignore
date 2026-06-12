@@ -39,3 +39,6 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+
+### Appunti privati (trama, note personali) - mai pubblicare ###
+private/
