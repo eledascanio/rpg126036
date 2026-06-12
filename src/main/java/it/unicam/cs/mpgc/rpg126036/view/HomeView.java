@@ -70,10 +70,7 @@ public class HomeView {
         Label titolo = new Label("CAMERINO FILES");
         titolo.getStyleClass().add("title");
 
-        Label sottotitolo = new Label("— SYSTEM STATUS: CRITICAL —");
-        sottotitolo.getStyleClass().add("subtitle");
-
-        VBox intestazione = new VBox(8, titolo, sottotitolo);
+        VBox intestazione = new VBox(8, titolo);
         intestazione.setAlignment(Pos.CENTER);
 
         VBox menu = new VBox(12,

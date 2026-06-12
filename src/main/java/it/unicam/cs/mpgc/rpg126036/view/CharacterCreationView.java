@@ -93,14 +93,12 @@ public class CharacterCreationView {
     }
 
     /**
-     * Avvia una nuova partita con il nome e la classe scelti. La schermata di gioco
-     * vera e propria verra' agganciata qui; per ora si conferma l'avvio.
+     * Avvia una nuova partita con il nome e la classe scelti e apre la sequenza
+     * introduttiva (monologo, cartello del capitolo, esplorazione).
      */
     private void avviaPartita(String nome, CharacterClass classe) {
         GameSession sessione = context.sessionFactory().nuovaPartita(nome, classe);
-        String riepilogo = "Partita avviata: " + sessione.getStato().getPlayer().getNome()
-                + " — " + classe.getNomeVisualizzato();
-        context.navigator().mostra(new PlaceholderView(context, riepilogo).getRoot());
+        context.navigator().mostra(new IntroView(context, sessione).getRoot());
     }
 
     /**

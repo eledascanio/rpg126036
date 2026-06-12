@@ -29,11 +29,6 @@
     -fx-effect: dropshadow(gaussian, #410000, 0, 1.0, 4, 4);
 }
 
-.subtitle {
-    -fx-font-size: 14px;
-    -fx-text-fill: #aa8984;
-}
-
 /* --- Pulsanti del menu in stile terminale --- */
 .menu-button {
     -fx-font-size: 18px;
@@ -59,4 +54,88 @@
 
 .accent-text {
     -fx-text-fill: #ffb4a8;
+}
+
+/* --- Schermata di gioco --- */
+.hud-bar {
+    -fx-background-color: rgba(14, 14, 14, 0.85);
+    -fx-padding: 12 20 12 20;
+}
+
+.hud-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #e5e2e1;
+}
+
+.hud-stat {
+    -fx-font-size: 16px;
+    -fx-text-fill: #e5e2e1;
+}
+
+.scene-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffb4a8;
+}
+
+.scene-text {
+    -fx-font-size: 16px;
+    -fx-text-fill: #e5e2e1;
+}
+
+.game-button {
+    -fx-font-size: 15px;
+    -fx-text-fill: #e5e2e1;
+    -fx-background-color: #1c1b1b;
+    -fx-background-radius: 0;
+    -fx-border-color: rgba(170, 137, 132, 0.25);
+    -fx-border-width: 1;
+    -fx-padding: 12 18 12 18;
+    -fx-cursor: hand;
+}
+
+.game-button:hover {
+    -fx-border-color: #ffb4a8;
+    -fx-text-fill: #ffb4a8;
+}
+
+/* --- Schermata di introduzione narrativa --- */
+.intro-text {
+    -fx-font-size: 18px;
+    -fx-text-fill: #e0483a;
+    -fx-line-spacing: 6px;
+}
+
+/* --- Cartello del capitolo (schermata nera) --- */
+.title-card {
+    -fx-background-color: #000000;
+}
+
+.title-card-text {
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e0483a;
+}
+
+/* --- Mappa esplorabile (placeholder) --- */
+.map-pane {
+    -fx-background-color: #182617;
+    -fx-border-color: rgba(170, 137, 132, 0.4);
+    -fx-border-width: 2;
+}
+
+/* --- Overlay (upgrade, game over, finale) --- */
+.overlay-veil {
+    -fx-background-color: rgba(10, 10, 10, 0.88);
+}
+
+.overlay-title {
+    -fx-font-size: 48px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #c0392b;
+}
+
+.overlay-subtitle {
+    -fx-font-size: 18px;
+    -fx-text-fill: #e5e2e1;
 }
