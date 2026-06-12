@@ -1,29 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Definizione del Capitolo 1. Struttura narrativa provvisoria: scene e
-     collegamenti sono personalizzabili; i riferimenti ai contenuti usano gli id
-     di NpcCatalog e ItemCatalog. -->
-<capitolo id="capitolo1" titolo="Capitolo 1: Il ritrovamento" scenaIniziale="ingresso">
+<!-- Definizione del Capitolo 1. Il giocatore arriva nel cortile del Polo, dove
+     trova gli studenti sconvolti, raccoglie la chiave e affronta l'enigma della
+     porta del laboratorio LA1. Risolverlo conclude il capitolo: il capitolo 2
+     riparte direttamente all'interno dell'aula. I riferimenti ai contenuti usano
+     gli id di NpcCatalog, ItemCatalog e degli enigmi. -->
+<capitolo id="capitolo1" titolo="Capitolo 1: Il ritrovamento" scenaIniziale="cortile">
 
-    <scena id="ingresso" titolo="Ingresso del Polo"
-           descrizione="Arrivi di corsa al Polo. C'è agitazione tra gli studenti: qualcosa di grave è appena successo.">
-        <transizione etichetta="Avvicinati al corridoio" destinazione="corridoio"/>
-    </scena>
-
-    <scena id="corridoio" titolo="Corridoio"
-           descrizione="Nel corridoio si accalcano alcuni studenti sconvolti. A terra, vicino al muro, intravedi qualcosa di luccicante.">
+    <!-- Scena unica e terminale del capitolo: il cortile racchiuso tra il Polo A
+         (laboratorio LA1) e il Polo B. La porta dell'aula e' sbarrata da un
+         tastierino numerico; superarla completa il capitolo. -->
+    <scena id="cortile" titolo="Cortile del Polo"
+           descrizione="Arrivi di corsa nel cortile del Polo. C'è agitazione tra gli studenti: qualcosa di grave è appena successo. A terra, vicino al muro, intravedi qualcosa di luccicante. La porta dell'aula LA1 — il laboratorio dove Antonio passava le sue giornate — è chiusa: un tastierino numerico ne blocca l'accesso.">
         <npc ref="informatore"/>
         <npc ref="studente_panico"/>
         <npc ref="studente_esame_1"/>
         <npc ref="studente_esame_2"/>
         <oggetto ref="chiave_capitolo1"/>
-        <transizione etichetta="Raggiungi il cortile" destinazione="cortile"/>
-    </scena>
-
-    <!-- Scena finale del capitolo: l'enigma della porta sbarra l'accesso all'aula
-         LA1. Risolverlo (codice o forza bruta) e' l'unico modo per completare il
-         capitolo; il capitolo 2 ripartira' direttamente all'interno dell'aula. -->
-    <scena id="cortile" titolo="Cortile del Polo"
-           descrizione="Attraversi il cortile fino alla porta dell'aula LA1, il laboratorio dove Antonio passava le sue giornate. La porta e' chiusa: un tastierino numerico ne blocca l'accesso.">
         <enigma ref="porta_laboratorio"/>
     </scena>
 

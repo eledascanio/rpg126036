@@ -1,5 +1,6 @@
 package it.unicam.cs.mpgc.rpg126036.view;
 
+import it.unicam.cs.mpgc.rpg126036.app.ContentResolver;
 import it.unicam.cs.mpgc.rpg126036.app.GameSessionFactory;
 import it.unicam.cs.mpgc.rpg126036.persistence.Campaign;
 import it.unicam.cs.mpgc.rpg126036.persistence.CampaignLoader;
@@ -31,7 +32,7 @@ public class CamerinoFilesApp extends Application {
         SaveRepository repository = new XmlSaveRepository();
         Campaign campaign = new CampaignLoader().caricaStandard();
         GameSessionFactory sessionFactory = new GameSessionFactory(repository, campaign);
-        AppContext context = new AppContext(navigator, sessionFactory);
+        AppContext context = new AppContext(navigator, sessionFactory, new ContentResolver());
 
         navigator.mostra(new HomeView(context).getRoot());
 
