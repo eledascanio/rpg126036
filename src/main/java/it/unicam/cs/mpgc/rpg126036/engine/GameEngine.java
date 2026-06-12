@@ -33,6 +33,7 @@ public class GameEngine {
     private int indiceCapitolo;
     private boolean gameOverNotificato;
     private boolean inPausa;
+    private boolean upgradeNotificato;
 
     /**
      * @param stato    lo stato della partita (non nullo)
@@ -158,6 +159,7 @@ public class GameEngine {
         InteractionResult risultato = interazione.esegui(stato.getPlayer());
         listeners.forEach(l -> l.onInteractionExecuted(risultato));
         verificaGameOver();
+        verificaUpgradeDisponibile();
         return risultato;
     }
 
@@ -180,6 +182,7 @@ public class GameEngine {
             listeners.forEach(l -> l.onItemFound(item));
         }
         verificaGameOver();
+        verificaUpgradeDisponibile();
         return risultato;
     }
 
@@ -289,5 +292,60 @@ public class GameEngine {
      */
     public boolean isSconfitta() {
         return isEnergiaEsaurita();
+    }
+
+    // ----------------------------------------------------------------------
+    // Potenziamento statistica a 100 XP (durante il gioco)
+    // ----------------------------------------------------------------------
+
+    /**
+     * Controlla se il giocatore ha accumulato XP sufficienti
+     * ({@link Player#COSTO_XP_POTENZIAMENTO}) per un potenziamento di statistica
+     * durante il gioco e, se ricorre, notifica una sola volta
+     * {@link GameListener#onUpgradeStatisticaDisponibile()}. La notifica non si
+     * ripete finche' l'upgrade in sospeso non viene applicato con
+     * {@link #applicaUpgrade(StatType)}.
+     *
+     * <p>Le azioni eseguite dal motore ({@link #esegui}, {@link #raccogli}) lo
+     * invocano gia'; va richiamato manualmente dopo le azioni che assegnano XP
+     * esterne al motore (ad es. la risoluzione di un enigma).</p>
+     *
+     * @return {@code true} se ha appena segnalato la disponibilita' di un upgrade
+     */
+    public boolean verificaUpgradeDisponibile() {
+        if (!gameOverNotificato && !upgradeNotificato
+                && stato.getPlayer().getXp() >= Player.COSTO_XP_POTENZIAMENTO) {
+            upgradeNotificato = true;
+            listeners.forEach(GameListener::onUpgradeStatisticaDisponibile);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return {@code true} se c'e' un potenziamento disponibile non ancora applicato
+     */
+    public boolean isUpgradeInSospeso() {
+        return upgradeNotificato;
+    }
+
+    /**
+     * Applica il potenziamento di statistica scelto dal giocatore in risposta a
+     * un upgrade disponibile, spendendo {@link Player#COSTO_XP_POTENZIAMENTO} XP.
+     * Se gli XP residui bastano per un ulteriore potenziamento, lo segnala di
+     * nuovo (upgrade in catena).
+     *
+     * @param statistica la statistica da potenziare (non nulla)
+     * @return {@code true} se il potenziamento e' avvenuto, {@code false} se gli
+     *         XP non erano sufficienti
+     */
+    public boolean applicaUpgrade(StatType statistica) {
+        Objects.requireNonNull(statistica, "La statistica non puo' essere nulla.");
+        if (!stato.getPlayer().potenziaStatistica(statistica)) {
+            return false;
+        }
+        upgradeNotificato = false;
+        verificaUpgradeDisponibile();
+        return true;
     }
 }

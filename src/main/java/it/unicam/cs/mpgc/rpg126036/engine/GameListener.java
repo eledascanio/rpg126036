@@ -57,6 +57,17 @@ public interface GameListener {
     }
 
     /**
+     * Invocato quando il giocatore accumula XP sufficienti
+     * ({@link it.unicam.cs.mpgc.rpg126036.model.Player#COSTO_XP_POTENZIAMENTO})
+     * per un potenziamento di statistica durante il gioco: la vista dovrebbe
+     * mostrare il pannello di scelta ("Upgrade statistica disponibile") con le
+     * tre statistiche selezionabili, oscurando lo sfondo senza interrompere la
+     * narrazione.
+     */
+    default void onUpgradeStatisticaDisponibile() {
+    }
+
+    /**
      * Invocato quando la partita termina, sia per vittoria (ultimo capitolo
      * completato) sia per sconfitta (energia esaurita). La causa e' distinguibile
      * tramite lo stato del motore.
