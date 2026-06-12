@@ -2,15 +2,17 @@ package it.unicam.cs.mpgc.rpg126036.persistence;
 
 import it.unicam.cs.mpgc.rpg126036.engine.GameListener;
 import it.unicam.cs.mpgc.rpg126036.engine.GameState;
+import it.unicam.cs.mpgc.rpg126036.engine.GameSummary;
 
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
  * Elimina lo slot di salvataggio quando la partita termina. Registrato come
- * {@link GameListener} sull'engine, su {@code onGameOver} cancella il salvataggio
- * del personaggio, liberando lo slot: la partita conclusa (per sconfitta o
- * vittoria) non e' piu' riprendibile.
+ * {@link GameListener} sull'engine, cancella il salvataggio del personaggio sia
+ * alla sconfitta ({@code onGameOver}) sia al completamento vittorioso
+ * ({@code onGameCompleted}): in entrambi i casi la partita non e' piu'
+ * riprendibile e lo slot viene liberato.
  *
  * <p>Un eventuale errore di cancellazione non interrompe il gioco: viene
  * inoltrato all'handler degli errori.</p>
@@ -48,6 +50,18 @@ public class GameOverCleanupListener implements GameListener {
 
     @Override
     public void onGameOver() {
+        cancellaSlot();
+    }
+
+    @Override
+    public void onGameCompleted(GameSummary riepilogo) {
+        cancellaSlot();
+    }
+
+    /**
+     * Cancella lo slot del personaggio, inoltrando all'handler un eventuale errore.
+     */
+    private void cancellaSlot() {
         try {
             repository.delete(stato.getPlayer().getNome());
         } catch (PersistenceException e) {

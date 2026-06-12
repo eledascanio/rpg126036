@@ -78,11 +78,21 @@ public interface GameListener {
     }
 
     /**
-     * Invocato quando la partita termina, sia per vittoria (ultimo capitolo
-     * completato) sia per sconfitta (energia esaurita). La causa e' distinguibile
-     * tramite lo stato del motore.
+     * Invocato quando la partita termina per sconfitta: energia esaurita. Per il
+     * completamento vittorioso del gioco si veda
+     * {@link #onGameCompleted(GameSummary)}.
      */
     default void onGameOver() {
+    }
+
+    /**
+     * Invocato quando il gioco viene completato con successo, ossia al termine
+     * dell'ultimo capitolo: la vista dovrebbe mostrare la schermata conclusiva
+     * ("TO BE CONTINUED") con statistiche finali e XP totali.
+     *
+     * @param riepilogo i dati riepilogativi della partita
+     */
+    default void onGameCompleted(GameSummary riepilogo) {
     }
 
     /**

@@ -32,7 +32,7 @@ public class GameEngine {
     private final List<GameListener> listeners = new ArrayList<>();
 
     private int indiceCapitolo;
-    private boolean gameOverNotificato;
+    private boolean finePartitaNotificata;
     private boolean inPausa;
     private boolean upgradeNotificato;
 
@@ -286,11 +286,26 @@ public class GameEngine {
         listeners.forEach(l -> l.onSceneChanged(scena));
     }
 
+    /**
+     * Controlla la condizione di vittoria (ultimo capitolo completato) e, se
+     * ricorre, notifica una sola volta {@link GameListener#onGameCompleted(GameSummary)}
+     * con il riepilogo finale della partita.
+     */
     private void verificaFinePartita() {
-        if (!gameOverNotificato && isPartitaTerminata()) {
-            gameOverNotificato = true;
-            listeners.forEach(GameListener::onGameOver);
+        if (!finePartitaNotificata && isPartitaTerminata()) {
+            finePartitaNotificata = true;
+            GameSummary riepilogo = creaRiepilogo();
+            listeners.forEach(l -> l.onGameCompleted(riepilogo));
         }
+    }
+
+    /**
+     * Costruisce il riepilogo finale dallo stato corrente del giocatore.
+     */
+    private GameSummary creaRiepilogo() {
+        Player giocatore = stato.getPlayer();
+        return new GameSummary(giocatore.getNome(), giocatore.getClasse(),
+                giocatore.getStatistiche(), giocatore.getXp());
     }
 
     /**
@@ -302,8 +317,8 @@ public class GameEngine {
      * @return {@code true} se ha appena segnalato il game over per energia
      */
     public boolean verificaGameOver() {
-        if (!gameOverNotificato && isEnergiaEsaurita()) {
-            gameOverNotificato = true;
+        if (!finePartitaNotificata && isEnergiaEsaurita()) {
+            finePartitaNotificata = true;
             listeners.forEach(GameListener::onGameOver);
             return true;
         }
@@ -336,7 +351,7 @@ public class GameEngine {
      * @return {@code true} se ha appena segnalato la disponibilita' di un upgrade
      */
     public boolean verificaUpgradeDisponibile() {
-        if (!gameOverNotificato && !upgradeNotificato
+        if (!finePartitaNotificata && !upgradeNotificato
                 && stato.getPlayer().getXp() >= Player.COSTO_XP_POTENZIAMENTO) {
             upgradeNotificato = true;
             listeners.forEach(GameListener::onUpgradeStatisticaDisponibile);
