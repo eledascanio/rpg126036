@@ -48,7 +48,7 @@ class GameEngineCompletionTest {
 
     @Test
     void completareLUltimoCapitoloEmetteOnGameCompleted() {
-        Player player = new Player("Detective", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Detective", CharacterClass.STUDENTE_MODELLO);
         Chapter capitolo = capitoloConFinale("capitolo3");
         GameEngine engine = new GameEngine(new GameState(player, capitolo), List.of(capitolo));
         SpiaEsito spia = new SpiaEsito();
@@ -61,14 +61,14 @@ class GameEngineCompletionTest {
         // Vittoria: nessun game over, riepilogo coerente con lo stato finale.
         assertEquals(0, spia.gameOver);
         assertEquals("Detective", spia.completamento.nomePersonaggio());
-        assertEquals(CharacterClass.INVESTIGATORE, spia.completamento.classe());
+        assertEquals(CharacterClass.STUDENTE_MODELLO, spia.completamento.classe());
         assertEquals(50, spia.completamento.xpTotali());
         assertEquals(player.getStatistiche(), spia.completamento.statisticheFinali());
     }
 
     @Test
     void ilRiepilogoEImmutabileEFotografaLoStatoAlCompletamento() {
-        Player player = new Player("Detective", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Detective", CharacterClass.STUDENTE_MODELLO);
         int investigazioneFinale = player.getStatistica(StatType.INVESTIGAZIONE);
         Chapter capitolo = capitoloConFinale("capitolo3");
         GameEngine engine = new GameEngine(new GameState(player, capitolo), List.of(capitolo));
@@ -85,7 +85,7 @@ class GameEngineCompletionTest {
 
     @Test
     void laSconfittaPerEnergiaEmetteOnGameOverNonOnGameCompleted() {
-        Player player = new Player("Detective", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Detective", CharacterClass.STUDENTE_MODELLO);
         // Scena corrente non terminale: il capitolo non e' completato.
         Chapter capitolo = capitoloConFinale("capitolo3");
         GameEngine engine = new GameEngine(new GameState(player, capitolo), List.of(capitolo));

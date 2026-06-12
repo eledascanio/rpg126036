@@ -38,7 +38,7 @@ class GameEngineClueTest {
 
     @Test
     void scoprireUnIndizioLoRegistraEloNotifica() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
         RaccoglitoreIndizi listener = new RaccoglitoreIndizi();
         engine.addListener(listener);
@@ -53,7 +53,7 @@ class GameEngineClueTest {
 
     @Test
     void unIndizioGiaNotoNonVieneRinotificato() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
         RaccoglitoreIndizi listener = new RaccoglitoreIndizi();
         engine.addListener(listener);
@@ -68,7 +68,7 @@ class GameEngineClueTest {
 
     @Test
     void inPausaNonSiScopronoIndizi() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
         engine.pausa();
 

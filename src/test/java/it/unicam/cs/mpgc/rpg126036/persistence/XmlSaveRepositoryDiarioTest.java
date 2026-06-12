@@ -23,7 +23,7 @@ class XmlSaveRepositoryDiarioTest {
     @Test
     void ilDiarioVienePersistitoERicaricato(@TempDir Path cartella) {
         XmlSaveRepository repository = new XmlSaveRepository(cartella);
-        Player player = new Player("Detective", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Detective", CharacterClass.STUDENTE_MODELLO);
         player.scopriIndizio(ClueCatalog.alexKaur());
         player.scopriIndizio(ClueCatalog.emailMittente());
         repository.save(new GameState(player));

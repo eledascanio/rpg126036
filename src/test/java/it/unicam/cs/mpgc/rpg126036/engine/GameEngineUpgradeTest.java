@@ -44,7 +44,7 @@ class GameEngineUpgradeTest {
 
     @Test
     void raggiunti100XpSiNotificaUpgradeUnaSolaVolta() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
         ContatoreUpgrade contatore = new ContatoreUpgrade();
         engine.addListener(contatore);
@@ -59,7 +59,7 @@ class GameEngineUpgradeTest {
 
     @Test
     void sottoLaSogliaNonSiNotificaNulla() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
         ContatoreUpgrade contatore = new ContatoreUpgrade();
         engine.addListener(contatore);
@@ -72,7 +72,7 @@ class GameEngineUpgradeTest {
 
     @Test
     void applicaUpgradeSpende100XpEAumentaLaStatistica() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         int investigazioneIniziale = player.getStatistica(StatType.INVESTIGAZIONE);
         GameEngine engine = motore(player);
         engine.esegui(guadagnoXp(120));
@@ -87,7 +87,7 @@ class GameEngineUpgradeTest {
 
     @Test
     void conXpDoppiOSiNotificaDiNuovoDopoIlPrimoUpgrade() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
         ContatoreUpgrade contatore = new ContatoreUpgrade();
         engine.addListener(contatore);
@@ -109,7 +109,7 @@ class GameEngineUpgradeTest {
 
     @Test
     void applicaUpgradeSenzaXpSufficientiNonFaNulla() {
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         GameEngine engine = motore(player);
 
         assertFalse(engine.applicaUpgrade(StatType.INVESTIGAZIONE));

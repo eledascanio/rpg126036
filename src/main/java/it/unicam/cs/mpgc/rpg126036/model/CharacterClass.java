@@ -8,28 +8,30 @@ import java.util.Map;
  * Archetipi di personaggio selezionabili. Ogni classe definisce le statistiche
  * iniziali con cui il personaggio comincia la partita.
  *
- * <p>Le tre classi sono bilanciate: ciascuna distribuisce lo stesso totale di
- * punti (18) ma specializzato su una statistica diversa.</p>
+ * <p>Tutte le statistiche partono da 0: la classe assegna un unico bonus di +1
+ * alla statistica caratterizzante. La progressione (upgrade di fine capitolo e a
+ * ogni 100 XP) fa poi crescere i valori, che restano comunque piccoli e sui quali
+ * sono tarate le soglie delle scene (&gt; 0, &ge; 2, &ge; 3).</p>
  */
 public enum CharacterClass {
 
-    /** Specializzato nell'esame delle scene e nella raccolta di indizi. */
-    INVESTIGATORE("Investigatore", Map.of(
-            StatType.INVESTIGAZIONE, 8,
-            StatType.CARISMA, 4,
-            StatType.INTUIZIONE, 6)),
+    /** Studente modello: portato all'esame delle scene e alla raccolta di indizi. */
+    STUDENTE_MODELLO("Studente modello", Map.of(
+            StatType.INVESTIGAZIONE, 1,
+            StatType.CARISMA, 0,
+            StatType.INTUIZIONE, 0)),
 
-    /** Specializzato nelle interazioni sociali e nella persuasione. */
-    DIPLOMATICO("Diplomatico", Map.of(
-            StatType.INVESTIGAZIONE, 4,
-            StatType.CARISMA, 8,
-            StatType.INTUIZIONE, 6)),
+    /** Rappresentante degli studenti: portato alle interazioni sociali e alla persuasione. */
+    RAPPRESENTANTE_STUDENTI("Rappresentante degli studenti", Map.of(
+            StatType.INVESTIGAZIONE, 0,
+            StatType.CARISMA, 1,
+            StatType.INTUIZIONE, 0)),
 
-    /** Specializzato nel cogliere dettagli nascosti e nell'analisi psicologica. */
-    PROFILER("Profiler", Map.of(
-            StatType.INVESTIGAZIONE, 6,
-            StatType.CARISMA, 4,
-            StatType.INTUIZIONE, 8));
+    /** Organizzatore di eventi: portato a cogliere dettagli nascosti e sensazioni. */
+    ORGANIZZATORE_EVENTI("Organizzatore di eventi", Map.of(
+            StatType.INVESTIGAZIONE, 0,
+            StatType.CARISMA, 0,
+            StatType.INTUIZIONE, 1));
 
     private final String nomeVisualizzato;
     private final Map<StatType, Integer> statisticheIniziali;

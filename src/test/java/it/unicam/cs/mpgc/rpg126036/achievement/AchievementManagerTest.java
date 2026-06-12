@@ -26,7 +26,7 @@ class AchievementManagerTest {
     private GameState statoNelCapitolo(String idCapitolo) {
         Chapter capitolo = new Chapter(idCapitolo, "Titolo");
         capitolo.aggiungiScena(new Scene("scena", "Scena", "Descrizione"));
-        Player player = new Player("Eroe", CharacterClass.INVESTIGATORE);
+        Player player = new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
         return new GameState(player, capitolo);
     }
 
