@@ -40,7 +40,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
 
 import java.io.InputStream;
@@ -69,6 +68,9 @@ public class ExplorationView implements GameListener {
     private static final double MAPPA_LARGHEZZA = 860;
     private static final double MAPPA_ALTEZZA = 440;
     private static final double LATO_PERSONAGGIO = 28;
+    // Altezza dello sprite a schermo: piu' alto del riquadro di collisione, che
+    // resta ai piedi del personaggio (stile GdR 2D dall'alto).
+    private static final double ALTEZZA_SPRITE = 60;
     private static final double VELOCITA = 3.0;
     private static final double RAGGIO_ELEMENTO = 16;
     private static final double RAGGIO_INTERAZIONE = 52;
@@ -90,7 +92,9 @@ public class ExplorationView implements GameListener {
 
     // Mappa e movimento.
     private final Pane mappa = new Pane();
-    private final Rectangle personaggio = new Rectangle(LATO_PERSONAGGIO, LATO_PERSONAGGIO, Color.web("#e0483a"));
+    private final CharacterSprite sprite;
+    private final ImageView personaggio = new ImageView();
+    private CharacterSprite.Direzione direzione = CharacterSprite.Direzione.GIU;
     private final Set<KeyCode> tastiPremuti = EnumSet.noneOf(KeyCode.class);
     private final List<ElementoScena> elementi = new ArrayList<>();
     private final SceneEnvironment ambienti = new SceneEnvironment();
@@ -111,6 +115,7 @@ public class ExplorationView implements GameListener {
         this.stato = session.getStato();
         this.campaign = session.getCampaign();
         this.resolver = context.contentResolver();
+        this.sprite = new CharacterSprite(stato.getPlayer().getClasse());
 
         root = new StackPane(costruisciLayout());
         root.getStyleClass().add("screen-root");
@@ -158,10 +163,13 @@ public class ExplorationView implements GameListener {
         mappa.getStyleClass().add("map-pane");
         mappa.setPrefSize(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         mappa.setMaxSize(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
-        personaggio.setLayoutX(posX);
-        personaggio.setLayoutY(posY);
-        personaggio.setArcWidth(8);
-        personaggio.setArcHeight(8);
+        personaggio.setImage(sprite.foglio());
+        personaggio.setFitHeight(ALTEZZA_SPRITE);
+        personaggio.setPreserveRatio(true);
+        // Pixel art: bordi netti anche scalando.
+        personaggio.setSmooth(false);
+        personaggio.setViewport(sprite.viewport(direzione));
+        aggiornaPosizioneSprite();
 
         titoloScena.getStyleClass().add("scene-title");
         VBox contenitore = new VBox(8, titoloScena, mappa);
@@ -264,8 +272,18 @@ public class ExplorationView implements GameListener {
             posX = (MAPPA_LARGHEZZA - LATO_PERSONAGGIO) / 2;
             posY = MAPPA_ALTEZZA - LATO_PERSONAGGIO - 8;
         }
-        personaggio.setLayoutX(posX);
-        personaggio.setLayoutY(posY);
+        aggiornaPosizioneSprite();
+    }
+
+    /**
+     * Allinea lo sprite alla posizione logica: centrato in orizzontale sul
+     * riquadro di collisione e appoggiato col suo bordo inferiore alla base del
+     * riquadro, così che i "piedi" coincidano col punto di collisione.
+     */
+    private void aggiornaPosizioneSprite() {
+        double larghezzaSprite = sprite.larghezzaPer(ALTEZZA_SPRITE);
+        personaggio.setLayoutX(posX + (LATO_PERSONAGGIO - larghezzaSprite) / 2);
+        personaggio.setLayoutY(posY + LATO_PERSONAGGIO - ALTEZZA_SPRITE);
     }
 
     private void aggiungiNpc(Npc npc) {
@@ -384,19 +402,43 @@ public class ExplorationView implements GameListener {
                     double nuovaX = clamp(posX + dx, MAPPA_LARGHEZZA - LATO_PERSONAGGIO);
                     if (!collide(nuovaX, posY)) {
                         posX = nuovaX;
-                        personaggio.setLayoutX(posX);
                     }
                 }
                 if (dy != 0) {
                     double nuovaY = clamp(posY + dy, MAPPA_ALTEZZA - LATO_PERSONAGGIO);
                     if (!collide(posX, nuovaY)) {
                         posY = nuovaY;
-                        personaggio.setLayoutY(posY);
                     }
+                }
+                if (dx != 0 || dy != 0) {
+                    aggiornaDirezione(dx, dy);
+                    aggiornaPosizioneSprite();
                 }
                 aggiornaElementoVicino();
             }
         };
+    }
+
+    /**
+     * Aggiorna la direzione dello sprite in base allo spostamento, dando
+     * priorità all'asse orizzontale, e cambia la cella mostrata solo se la
+     * direzione è effettivamente cambiata.
+     */
+    private void aggiornaDirezione(double dx, double dy) {
+        CharacterSprite.Direzione nuova;
+        if (dx > 0) {
+            nuova = CharacterSprite.Direzione.DESTRA;
+        } else if (dx < 0) {
+            nuova = CharacterSprite.Direzione.SINISTRA;
+        } else if (dy < 0) {
+            nuova = CharacterSprite.Direzione.SU;
+        } else {
+            nuova = CharacterSprite.Direzione.GIU;
+        }
+        if (nuova != direzione) {
+            direzione = nuova;
+            personaggio.setViewport(sprite.viewport(direzione));
+        }
     }
 
     /**

@@ -20,6 +20,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.TextAlignment;
 
 import java.io.InputStream;
 import java.util.Objects;
@@ -122,24 +123,57 @@ public class CharacterCreationView {
         return velo;
     }
 
+    /** Dimensioni uniformi delle card e dei loro blocchi interni (in pixel). */
+    private static final double LARGHEZZA_CARD = 200;
+    private static final double ALTEZZA_CARD = 250;
+    private static final double ALTEZZA_SPRITE_CARD = 110;
+    // Altezza riservata al nome: fissa e pari a due righe, così le card con nome
+    // su una sola riga restano comunque alte uguale e tutto resta allineato.
+    private static final double ALTEZZA_NOME = 60;
+
     /**
-     * Crea una card selezionabile per una classe: nome e statistica caratterizzante.
-     * Lo spazio sopra il nome e' previsto per l'immagine del personaggio.
+     * Crea una card selezionabile per una classe: sprite frontale, nome e
+     * statistica caratterizzante. Tutti i blocchi hanno altezza fissa identica
+     * tra le card, così sprite e testi risultano allineati e centrati.
      */
     private ToggleButton cardClasse(CharacterClass classe, ToggleGroup gruppo) {
+        // Sprite frontale della classe: distingue le tre opzioni a colpo d'occhio.
+        var sprite = new CharacterSprite(classe).nodo(CharacterSprite.Direzione.GIU, ALTEZZA_SPRITE_CARD);
+        // Riquadro di altezza fissa con lo sprite appoggiato in basso: i "piedi"
+        // dei tre personaggi cadono tutti sulla stessa linea.
+        StackPane riquadroSprite = new StackPane(sprite);
+        riquadroSprite.setPrefHeight(ALTEZZA_SPRITE_CARD);
+        riquadroSprite.setMinHeight(ALTEZZA_SPRITE_CARD);
+        riquadroSprite.setAlignment(Pos.BOTTOM_CENTER);
+
         Label nome = new Label(classe.getNomeVisualizzato());
-        nome.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #ecf0f1;");
+        // Testo scuro: la card ha sfondo chiaro, quindi il bianco era illeggibile.
+        nome.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1b2631;");
+        // Nomi lunghi (es. "Rappresentante degli studenti") vanno a capo, centrati.
+        nome.setWrapText(true);
+        nome.setTextAlignment(TextAlignment.CENTER);
+        nome.setAlignment(Pos.CENTER);
+        // Blocco nome ad altezza fissa: uniforma le card a una o due righe.
+        StackPane riquadroNome = new StackPane(nome);
+        riquadroNome.setPrefHeight(ALTEZZA_NOME);
+        riquadroNome.setMinHeight(ALTEZZA_NOME);
+        riquadroNome.setMaxWidth(LARGHEZZA_CARD - 24);
+        riquadroNome.setAlignment(Pos.CENTER);
+
         Label bonus = new Label("+1 " + classe.statisticaPrincipale().getNomeVisualizzato());
         bonus.setStyle("-fx-font-size: 18px; -fx-text-fill: #c0392b;");
 
-        VBox contenuto = new VBox(6, nome, bonus);
+        VBox contenuto = new VBox(8, riquadroSprite, riquadroNome, bonus);
+        // I blocchi hanno altezza fissa identica fra le card: basta centrarli,
+        // così il contenuto resta verticalmente equilibrato nel bottone.
         contenuto.setAlignment(Pos.CENTER);
 
         ToggleButton card = new ToggleButton();
         card.setGraphic(contenuto);
         card.setToggleGroup(gruppo);
         card.setUserData(classe);
-        card.setPrefSize(200, 120);
+        card.setPrefSize(LARGHEZZA_CARD, ALTEZZA_CARD);
+        card.setAlignment(Pos.CENTER);
         return card;
     }
 
