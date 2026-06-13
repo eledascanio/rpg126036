@@ -49,8 +49,7 @@ public class IntroView {
 
         Button prosegui = new Button("Prosegui");
         prosegui.getStyleClass().add("menu-button");
-        prosegui.setOnAction(e -> context.navigator().mostra(
-                new ChapterTitleView(context, session, "Cortile del Polo di Informatica").getRoot()));
+        prosegui.setOnAction(e -> avviaSequenzaCapitolo(context, session));
 
         VBox contenuto = new VBox(36, testo, prosegui);
         contenuto.setAlignment(Pos.CENTER);
@@ -67,6 +66,19 @@ public class IntroView {
             testo.setText(MONOLOGO);
         });
         macchinaDaScrivere.play();
+    }
+
+    /**
+     * Avvia la sequenza dei cartelli: prima "Capitolo 1", poi il nome
+     * dell'ambientazione, infine la mappa esplorabile.
+     */
+    private void avviaSequenzaCapitolo(AppContext context, GameSession session) {
+        Runnable vaiAEsplorazione = () -> context.navigator().mostra(
+                new ExplorationView(context, session).getRoot());
+        Runnable vaiAlCortile = () -> context.navigator().mostra(
+                new ChapterTitleView(context, "Cortile del Polo di Informatica", vaiAEsplorazione).getRoot());
+        context.navigator().mostra(
+                new ChapterTitleView(context, "Capitolo 1", vaiAlCortile).getRoot());
     }
 
     /**
