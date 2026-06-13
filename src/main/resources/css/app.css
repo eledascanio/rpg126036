@@ -47,6 +47,16 @@
     -fx-text-fill: #ffb4a8;
 }
 
+/* --- Font pixel art (VT323): applicato a un contenitore, eredita ai discendenti --- */
+.pixel-font {
+    -fx-font-family: "VT323";
+}
+
+/* Overlay scuro aggiuntivo, usato solo nella schermata di creazione personaggio. */
+.creation-overlay {
+    -fx-background-color: rgba(0, 0, 0, 0.55);
+}
+
 /* --- Testo generico chiaro su sfondo scuro --- */
 .body-text {
     -fx-text-fill: #e5e2e1;
@@ -101,7 +111,7 @@
 
 /* --- Schermata di introduzione narrativa --- */
 .intro-text {
-    -fx-font-size: 18px;
+    -fx-font-size: 24px;
     -fx-text-fill: #e0483a;
     -fx-line-spacing: 6px;
 }

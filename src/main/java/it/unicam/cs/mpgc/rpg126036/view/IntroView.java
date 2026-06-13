@@ -1,6 +1,8 @@
 package it.unicam.cs.mpgc.rpg126036.view;
 
 import it.unicam.cs.mpgc.rpg126036.app.GameSession;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
@@ -8,6 +10,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 import java.util.Objects;
 
@@ -26,8 +29,11 @@ public class IntroView {
             tutto, le piste si raffredderanno e l'assassino – che è sicuramente ancora qui intorno – \
             avrà il tempo di coprire le sue tracce e dileguarsi nel nulla.
 
-            Non puoi permetterlo. Non per Antonio. Hai solo pochi minuti prima di sentire le sirene \
+            Non puoi permetterlo. Non per Antonio. Hai poco tempo prima di sentire le sirene \
             in lontananza. Trova chi è stato.""";
+
+    /** Ritardo fra un carattere e il successivo nell'effetto macchina da scrivere. */
+    private static final Duration RITMO_CARATTERE = Duration.millis(18);
 
     private final StackPane root;
 
@@ -35,7 +41,7 @@ public class IntroView {
         Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
         Objects.requireNonNull(session, "La sessione non puo' essere nulla.");
 
-        Label testo = new Label(MONOLOGO);
+        Label testo = new Label();
         testo.getStyleClass().add("intro-text");
         testo.setWrapText(true);
         testo.setMaxWidth(680);
@@ -51,7 +57,31 @@ public class IntroView {
         contenuto.setPadding(new Insets(48));
 
         root = new StackPane(contenuto);
-        root.getStyleClass().add("title-card");
+        // title-card per lo sfondo nero, pixel-font per il font VT323 su testo e pulsante.
+        root.getStyleClass().addAll("title-card", "pixel-font");
+
+        Timeline macchinaDaScrivere = creaEffettoMacchinaDaScrivere(testo);
+        // Un clic sullo sfondo rivela subito tutto il monologo, saltando l'animazione.
+        root.setOnMouseClicked(e -> {
+            macchinaDaScrivere.stop();
+            testo.setText(MONOLOGO);
+        });
+        macchinaDaScrivere.play();
+    }
+
+    /**
+     * Costruisce l'animazione che svela il monologo un carattere alla volta,
+     * creando l'effetto di scrittura in tempo reale davanti al giocatore.
+     */
+    private Timeline creaEffettoMacchinaDaScrivere(Label testo) {
+        int[] indice = {0};
+        Timeline timeline = new Timeline(new KeyFrame(RITMO_CARATTERE, e -> {
+            indice[0]++;
+            testo.setText(MONOLOGO.substring(0, indice[0]));
+        }));
+        // Un ciclo per ogni carattere del monologo.
+        timeline.setCycleCount(MONOLOGO.length());
+        return timeline;
     }
 
     /**

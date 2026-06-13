@@ -40,7 +40,7 @@ public class HomeView {
         this.context = Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
 
         root = new StackPane();
-        root.getStyleClass().add("screen-root");
+        root.getStyleClass().addAll("screen-root", "pixel-font");
         root.getChildren().addAll(livelloSfondo(), livelloVelo(), livelloContenuto());
     }
 
@@ -69,6 +69,8 @@ public class HomeView {
     private BorderPane livelloContenuto() {
         Label titolo = new Label("CAMERINO FILES");
         titolo.getStyleClass().add("title");
+        // Mantiene il font originale del titolo, escludendolo dal pixel font ereditato dal root.
+        titolo.setStyle("-fx-font-family: \"Consolas\", \"Space Mono\", monospace;");
 
         VBox intestazione = new VBox(8, titolo);
         intestazione.setAlignment(Pos.CENTER);
