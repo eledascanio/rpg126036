@@ -214,15 +214,24 @@ public class ExplorationView implements GameListener {
         Scene scena = engine.getScenaCorrente();
         titoloScena.setText(scena.getTitolo());
 
+        String idCapitolo = engine.getCapitoloCorrente().getId();
+        SceneContents contenuti = campaign.contenutiDi(idCapitolo, scena.getId());
+
+        // Scena puramente narrativa (terminale e senza elementi interattivi, come la
+        // schermata dell'email a fine capitolo 2): la mostriamo come overlay a schermo
+        // invece di una stanza esplorabile vuota. La fine partita resta esclusa: la
+        // scena finale e' gestita da onGameCompleted.
+        if (isScenaNarrativa(scena, contenuti)) {
+            mostraOverlayNarrativo(scena);
+            return;
+        }
+
         // Sfondo, ostacoli e punto di comparsa dipendono dall'ambiente della scena.
         // Lo sfondo va aggiunto come primo figlio (sotto personaggio ed elementi).
         Optional<SceneEnvironment.Ambiente> ambiente = ambienti.di(scena.getId());
         ambiente.ifPresent(this::applicaAmbiente);
 
         mappa.getChildren().add(personaggio);
-
-        String idCapitolo = engine.getCapitoloCorrente().getId();
-        SceneContents contenuti = campaign.contenutiDi(idCapitolo, scena.getId());
 
         for (String idNpc : contenuti.npc()) {
             resolver.npc(idNpc).ifPresent(this::aggiungiNpc);
@@ -323,6 +332,19 @@ public class ExplorationView implements GameListener {
      * Posiziona gli elementi sugli slot dell'ambiente, se definiti (sul pavimento,
      * lontano dai muri); altrimenti ripiega sulla disposizione automatica a fasce.
      */
+    /**
+     * @return {@code true} se la scena va presentata come schermata narrativa
+     *         (overlay) anziché come stanza esplorabile: scena terminale, priva di
+     *         elementi interattivi e che non coincide con la fine della partita.
+     */
+    private boolean isScenaNarrativa(Scene scena, SceneContents contenuti) {
+        return scena.isTerminale()
+                && contenuti.npc().isEmpty()
+                && contenuti.oggetti().isEmpty()
+                && contenuti.enigmi().isEmpty()
+                && !engine.isPartitaTerminata();
+    }
+
     private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
         if (ambiente != null && !ambiente.slot().isEmpty()) {
             disponiSuSlot(ambiente.slot());
@@ -601,6 +623,31 @@ public class ExplorationView implements GameListener {
         mostraOverlay(velo(pannello), true);
     }
 
+    /**
+     * Mostra una scena narrativa come overlay a schermo: titolo, testo e un pulsante
+     * "Continua" che conclude il capitolo (scelta del potenziamento e avanzamento).
+     */
+    private void mostraOverlayNarrativo(Scene scena) {
+        Label titolo = new Label(scena.getTitolo());
+        titolo.getStyleClass().add("overlay-title");
+        Label corpo = new Label(scena.getDescrizione());
+        corpo.getStyleClass().add("overlay-subtitle");
+        corpo.setWrapText(true);
+        corpo.setMaxWidth(560);
+
+        Button continua = new Button("Continua");
+        continua.getStyleClass().add("game-button");
+        continua.setOnAction(e -> {
+            chiudiOverlay();
+            verificaCompletamentoCapitolo();
+        });
+
+        VBox pannello = new VBox(24, titolo, corpo, continua);
+        pannello.setAlignment(Pos.CENTER);
+        // Non chiudibile con ESC: si prosegue solo dal pulsante.
+        mostraOverlay(velo(pannello), false);
+    }
+
     private void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
         if (puzzle.isRisolto()) {
             mostraMessaggio("Enigma", "Hai già superato questo enigma.");
@@ -782,6 +829,11 @@ public class ExplorationView implements GameListener {
      * avanza; per l'ultimo capitolo lascia che sia il motore a segnalare la fine.
      */
     private void verificaCompletamentoCapitolo() {
+        // Un overlay aperto (es. la schermata dell'email) attende l'azione dell'utente:
+        // non concludere il capitolo finché non viene chiuso col "Continua".
+        if (overlayCorrente != null) {
+            return;
+        }
         Scene scena = engine.getScenaCorrente();
         if (!scena.isTerminale() || haEnigmaNonRisolto() || engine.isPartitaTerminata()) {
             return;
