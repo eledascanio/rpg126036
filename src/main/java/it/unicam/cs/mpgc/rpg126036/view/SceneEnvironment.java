@@ -80,7 +80,7 @@ public final class SceneEnvironment {
                 new Punto(0.60, 0.30),
                 new Punto(0.38, 0.70),
                 new Punto(0.62, 0.70),
-                new Punto(0.52, 0.52),
+                new Punto(0.85, 0.68),  // chiave: angolo in basso a destra, sul pavimento
                 new Punto(0.37, 0.45)
         ), 0.50, 0.76));
     }
