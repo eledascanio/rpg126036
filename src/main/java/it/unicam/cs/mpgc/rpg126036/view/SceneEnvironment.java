@@ -76,7 +76,10 @@ public final class SceneEnvironment {
         ), List.of(
                 // Slot sul pavimento della piazza, nell'ordine dei contenuti dichiarati
                 // nell'XML: 4 NPC, poi la chiave, infine l'enigma (porta del Polo A).
-                new Punto(0.40, 0.30),
+                // Il primo NPC (studente ubriaco) e' appoggiato col dorso al Polo A
+                // (muro di sinistra, fino a x=0.32) e collocato un po' piu' in basso,
+                // restando comunque distante dalla porta del laboratorio.
+                new Punto(0.33, 0.40),
                 new Punto(0.60, 0.30),
                 new Punto(0.38, 0.70),
                 new Punto(0.62, 0.70),

@@ -28,7 +28,7 @@ import java.util.Objects;
  *     &lt;transizione etichetta="..." destinazione="corridoio"/&gt;
  *   &lt;/scena&gt;
  *   &lt;scena id="corridoio" titolo="..." descrizione="..."&gt;
- *     &lt;npc ref="informatore"/&gt;
+ *     &lt;npc ref="studente_ubriaco"/&gt;
  *     &lt;oggetto ref="chiave_capitolo1"/&gt;
  *     &lt;enigma ref="..."/&gt;
  *   &lt;/scena&gt;

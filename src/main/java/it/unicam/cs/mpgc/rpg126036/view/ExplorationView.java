@@ -188,7 +188,7 @@ public class ExplorationView implements GameListener {
         personaggio.setViewport(sprite.viewport(direzione));
         aggiornaPosizioneSprite();
 
-        titoloScena.getStyleClass().add("scene-title");
+        titoloScena.getStyleClass().addAll("scene-title", "pixel-font");
         VBox contenitore = new VBox(8, titoloScena, mappa);
         contenitore.setAlignment(Pos.CENTER);
         contenitore.setPadding(new Insets(12));
@@ -320,7 +320,11 @@ public class ExplorationView implements GameListener {
         ElementoScena e = (sprite != null)
                 ? new ElementoScena(TipoElemento.NPC, etichettaAzione, sprite)
                 : new ElementoScena(TipoElemento.NPC, npc.getNome(), etichettaAzione, Color.web("#4a90d9"));
-        e.azione = () -> interagisciConNpc(npc);
+        // Lo studente ubriaco ha un'interazione su misura (recupero energia col
+        // Carisma e dialogo a scelte); gli altri NPC usano il dialogo standard.
+        e.azione = "studente_ubriaco".equals(npc.getId())
+                ? () -> interagisciConStudenteUbriaco(npc)
+                : () -> interagisciConNpc(npc);
         registra(e);
     }
 
@@ -643,6 +647,62 @@ public class ExplorationView implements GameListener {
         mostraDialogo(npc.getNome(), testo.toString());
     }
 
+    /**
+     * Interazione su misura con lo studente ubriaco. Come ogni dialogo costa
+     * {@link #COSTO_ENERGIA_DIALOGO} di energia; se il giocatore ha Carisma &gt; 0
+     * (ha scelto il rappresentante) l'NPC lo riconosce e gli offre un sorso,
+     * restituendo l'energia appena spesa quando il giocatore passa la battuta
+     * (premendo E). In ogni caso prosegue con la battuta comune a scelte.
+     */
+    private void interagisciConStudenteUbriaco(Npc npc) {
+        Player player = stato.getPlayer();
+        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        if (player.getStatistica(StatType.CARISMA) > 0) {
+            String saluto = "Ehi, ma tu sei il rappresentante! Tieni, fatti un goccio... "
+                    + "alla salute di Antonio, povero ragazzo.";
+            // Al passaggio della battuta si recupera l'energia spesa per parlargli.
+            mostraDialogo(npc.getNome(), saluto, () -> {
+                player.ripristinaEnergia(COSTO_ENERGIA_DIALOGO);
+                aggiornaHud();
+                mostraDialogoUbriacoConScelte(npc);
+            }, List.of());
+        } else {
+            mostraDialogoUbriacoConScelte(npc);
+        }
+    }
+
+    /**
+     * Battuta comune dello studente ubriaco (mostrata a tutti i giocatori) con le
+     * due scelte: chiedere dettagli per ottenere l'indizio o lasciar perdere.
+     */
+    private void mostraDialogoUbriacoConScelte(Npc npc) {
+        String battuta = "Ho visto Antonio discutere con qualcuno prima... mi pare.";
+        mostraDialogo(npc.getNome(), battuta, this::chiudiOverlay, List.of(
+                new OpzioneDialogo("Chiedi dettagli", () -> chiediDettagliUbriaco(npc)),
+                new OpzioneDialogo("Lascia stare", this::chiudiOverlay)));
+    }
+
+    /**
+     * Esito della scelta "chiedi dettagli": la prima volta assegna +20 XP e
+     * registra nel diario l'indizio sul litigante; poi mostra la rivelazione.
+     */
+    private void chiediDettagliUbriaco(Npc npc) {
+        Player player = stato.getPlayer();
+        StringBuilder testo = new StringBuilder("Mi sembrava di averlo visto litigare con Alex Kaur.");
+        resolver.indizioDi(npc.getId()).ifPresent(indizio -> {
+            if (engine.trovaIndizio(indizio)) {
+                player.aggiungiXp(20);
+                testo.append("\n\n🔎 Nuovo indizio nel diario: ").append(indizio.titolo());
+            }
+        });
+        aggiornaHud();
+        mostraDialogo(npc.getNome(), testo.toString());
+    }
+
     private void raccogliOggetto(ItemInteraction oggetto, ElementoScena elemento) {
         InteractionResult esito = engine.raccogli(oggetto);
         rimuoviElemento(elemento);
@@ -717,6 +777,21 @@ public class ExplorationView implements GameListener {
      * altrimenti chiudono il dialogo; lo stesso fa ESC.
      */
     private void mostraDialogo(String nome, String testo) {
+        mostraDialogo(nome, testo, this::chiudiOverlay, List.of());
+    }
+
+    /**
+     * Variante completa del dialog box. Quando il testo è interamente rivelato:
+     * se {@code opzioni} è vuota un ulteriore input (E o clic) esegue {@code alTermine}
+     * (di norma la chiusura); altrimenti compaiono i pulsanti di scelta e l'avanzamento
+     * da tastiera/clic diventa inerte (si prosegue scegliendo un'opzione).
+     *
+     * @param nome     nome dell'NPC mostrato in alto
+     * @param testo    battuta rivelata a macchina da scrivere
+     * @param alTermine azione eseguita al termine quando non ci sono scelte
+     * @param opzioni  le scelte proposte al termine (eventualmente vuote)
+     */
+    private void mostraDialogo(String nome, String testo, Runnable alTermine, List<OpzioneDialogo> opzioni) {
         Label etichettaNome = new Label(nome);
         etichettaNome.getStyleClass().add("dialog-name");
 
@@ -756,14 +831,33 @@ public class ExplorationView implements GameListener {
         }));
         macchina.setCycleCount(testo.length());
 
+        // A testo completato compaiono le scelte (se presenti), sostituendo il prompt.
+        Runnable mostraOpzioni = () -> {
+            if (opzioni.isEmpty()) {
+                return;
+            }
+            HBox barraOpzioni = new HBox(12);
+            barraOpzioni.setAlignment(Pos.CENTER_RIGHT);
+            for (OpzioneDialogo opzione : opzioni) {
+                Button scelta = new Button(opzione.etichetta());
+                scelta.getStyleClass().add("game-button");
+                scelta.setOnAction(e -> opzione.azione().run());
+                barraOpzioni.getChildren().add(scelta);
+            }
+            box.setBottom(barraOpzioni);
+        };
+        macchina.setOnFinished(e -> mostraOpzioni.run());
+
         Runnable avanzamento = () -> {
             if (macchina.getStatus() == Animation.Status.RUNNING) {
-                // Prima rivelazione completa, poi (al successivo input) chiusura.
+                // Prima rivelazione completa, poi le scelte (o, senza scelte, la chiusura).
                 macchina.stop();
                 etichettaTesto.setText(testo);
-            } else {
-                chiudiOverlay();
+                mostraOpzioni.run();
+            } else if (opzioni.isEmpty()) {
+                alTermine.run();
             }
+            // Con le scelte già mostrate l'avanzamento è inerte: si sceglie un pulsante.
         };
         box.setOnMouseClicked(e -> avanzamento.run());
 
@@ -878,6 +972,8 @@ public class ExplorationView implements GameListener {
         etichettaSub.getStyleClass().add("overlay-subtitle");
         etichettaSub.setWrapText(true);
         etichettaSub.setMaxWidth(520);
+        // Testo centrato anche su più righe (altrimenti resta allineato a sinistra).
+        etichettaSub.setTextAlignment(TextAlignment.CENTER);
 
         Button menu = new Button("Torna al menu principale");
         menu.getStyleClass().add("game-button");
@@ -885,6 +981,9 @@ public class ExplorationView implements GameListener {
 
         VBox pannello = new VBox(24, etichettaTitolo, etichettaSub, menu);
         pannello.setAlignment(Pos.CENTER);
+        // Senza fillWidth ogni scritta è larga quanto il suo testo e il VBox la
+        // centra come nodo: titolo e sottotitolo restano allineati al centro.
+        pannello.setFillWidth(false);
         // Font pixel VT323, come nel resto del gioco.
         pannello.getStyleClass().add("pixel-font");
         mostraOverlay(velo(pannello), false);
@@ -1062,6 +1161,13 @@ public class ExplorationView implements GameListener {
     // ----------------------------------------------------------------------
 
     private enum TipoElemento {NPC, OGGETTO, ENIGMA, USCITA}
+
+    /**
+     * Una scelta proposta al termine di un dialog box: l'etichetta del pulsante e
+     * l'azione eseguita alla selezione.
+     */
+    private record OpzioneDialogo(String etichetta, Runnable azione) {
+    }
 
     /**
      * Elemento interattivo posizionato sulla mappa: un nodo visivo (cerchio

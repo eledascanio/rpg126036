@@ -28,7 +28,7 @@ class ChapterLoaderCampagnaTest {
         assertEquals("capitolo1", capitolo.getId());
         assertEquals("cortile", capitolo.getIdScenaIniziale().orElseThrow());
         // Il cortile raccoglie NPC, chiave ed enigma della porta del laboratorio.
-        assertTrue(def.contenutiDi("cortile").npc().contains("informatore"));
+        assertTrue(def.contenutiDi("cortile").npc().contains("studente_ubriaco"));
         assertTrue(def.contenutiDi("cortile").oggetti().contains("chiave_capitolo1"));
         assertTrue(def.contenutiDi("cortile").enigmi().contains("porta_laboratorio"));
         // E' la scena finale del capitolo: risolverla conclude il capitolo 1.

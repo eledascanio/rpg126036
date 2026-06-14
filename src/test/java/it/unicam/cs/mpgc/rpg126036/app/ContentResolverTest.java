@@ -28,7 +28,7 @@ class ContentResolverTest {
 
     @Test
     void risolveGliNpcDiTuttiICapitoli() {
-        assertTrue(resolver.npc("informatore").isPresent());
+        assertTrue(resolver.npc("studente_ubriaco").isPresent());
         assertTrue(resolver.npc("tecnico_laboratorio").isPresent());
         assertTrue(resolver.npc("addetto_pulizie").isPresent());
         assertTrue(resolver.npc("inesistente").isEmpty());
@@ -56,7 +56,7 @@ class ContentResolverTest {
 
     @Test
     void associaGliNpcUtiliAiLoroIndizi() {
-        Optional<Clue> indizio = resolver.indizioDi("informatore");
+        Optional<Clue> indizio = resolver.indizioDi("studente_ubriaco");
         assertTrue(indizio.isPresent());
         assertEquals(ClueCatalog.ID_ALEX_KAUR, indizio.get().id());
 

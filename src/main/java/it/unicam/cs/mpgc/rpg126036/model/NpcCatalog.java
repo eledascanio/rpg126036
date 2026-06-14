@@ -17,15 +17,17 @@ public final class NpcCatalog {
     }
 
     /**
-     * Capitolo 1: un informatore utile e tre NPC di contorno.
+     * Capitolo 1: lo studente ubriaco (informatore utile) e tre NPC di contorno.
      *
      * @return gli NPC presenti nel primo capitolo
      */
     public static List<Npc> capitoloUno() {
         return List.of(
-                // NPC utile: fornisce l'indizio iniziale.
-                new Npc("informatore", "Studente nel corridoio", true,
-                        Dialogue.semplice("Ho visto Antonio discutere con qualcuno")),
+                // NPC utile: l'interazione (riconoscimento col Carisma, scelta "chiedi
+                // dettagli" con XP e indizio) e' gestita su misura dalla vista; qui basta
+                // la battuta comune e il nome mostrato nel dialog box.
+                new Npc("studente_ubriaco", "Studente ubriaco", true,
+                        Dialogue.semplice("Ho visto Antonio discutere con qualcuno prima... mi pare.")),
                 // NPC di contorno: in preda al panico.
                 new Npc("studente_panico", "Studentessa in lacrime", false,
                         Dialogue.semplice("Non riesco a smettere di piangere... è tutto un incubo!")),

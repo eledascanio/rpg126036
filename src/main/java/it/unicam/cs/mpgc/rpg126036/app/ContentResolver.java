@@ -58,7 +58,7 @@ public class ContentResolver {
                 .forEach(indizio -> indiziPerId.put(indizio.id(), indizio));
 
         // Legame NPC utile -> indizio sbloccato quando il dialogo e' accessibile.
-        indizioPerNpc.put("informatore", ClueCatalog.ID_ALEX_KAUR);
+        indizioPerNpc.put("studente_ubriaco", ClueCatalog.ID_ALEX_KAUR);
         indizioPerNpc.put("tecnico_laboratorio", ClueCatalog.ID_PASSWORD_PC);
         indizioPerNpc.put("addetto_pulizie", ClueCatalog.ID_FUGA_STUDENTE);
     }

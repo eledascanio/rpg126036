@@ -11,7 +11,7 @@
          tastierino numerico; superarla completa il capitolo. -->
     <scena id="cortile" titolo="Cortile del Polo"
            descrizione="Arrivi di corsa nel cortile del Polo. C'è agitazione tra gli studenti: qualcosa di grave è appena successo. A terra, vicino al muro, intravedi qualcosa di luccicante. La porta dell'aula LA1 — il laboratorio dove Antonio passava le sue giornate — è chiusa: un tastierino numerico ne blocca l'accesso.">
-        <npc ref="informatore"/>
+        <npc ref="studente_ubriaco"/>
         <npc ref="studente_panico"/>
         <npc ref="studente_esame_1"/>
         <npc ref="studente_esame_2"/>
