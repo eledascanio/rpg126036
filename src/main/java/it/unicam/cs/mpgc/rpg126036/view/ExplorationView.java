@@ -121,6 +121,9 @@ public class ExplorationView implements GameListener {
     // sempre inaccessibile. Nulle nelle scene che non le prevedono.
     private ElementoScena portaPoloA;
     private ElementoScena portaPoloB;
+    // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
+    // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
+    private boolean pensieroIndagineMostrato;
 
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
@@ -436,6 +439,21 @@ public class ExplorationView implements GameListener {
         Player player = stato.getPlayer();
         return player.getInventario().contiene(ItemCatalog.ID_CHIAVE_CAPITOLO1)
                 && player.getDiario().contiene(ClueCatalog.ID_ALEX_KAUR);
+    }
+
+    /**
+     * Mostra una sola volta il pensiero che indirizza verso il PC di Antonio, non
+     * appena il giocatore possiede sia la chiave sia l'indizio su Alex Kaur (in
+     * qualunque ordine abbia compiuto le due azioni).
+     */
+    private void forsePensieroIndagine() {
+        if (!pensieroIndagineMostrato && isEnigmaPortaSbloccato()) {
+            pensieroIndagineMostrato = true;
+            mostraDialogo(stato.getPlayer().getNome(),
+                    "Quel ragazzo ha detto di aver visto Antonio litigare con Alex… ma perché "
+                            + "l'aggressore avrebbe dovuto rubargli le chiavi? Mi servono altre "
+                            + "informazioni… forse riesco a controllare il PC di Antonio al Polo A.");
+        }
     }
 
     /**
@@ -793,14 +811,24 @@ public class ExplorationView implements GameListener {
             }
         });
         aggiornaHud();
-        mostraDialogo(npc.getNome(), testo.toString());
+        // Alla chiusura della battuta, se ora il giocatore ha sia la chiave sia
+        // l'indizio, parte il pensiero che lo indirizza verso il PC di Antonio.
+        mostraDialogo(npc.getNome(), testo.toString(), () -> {
+            chiudiOverlay();
+            forsePensieroIndagine();
+        }, List.of());
     }
 
     private void raccogliOggetto(ItemInteraction oggetto, ElementoScena elemento) {
         InteractionResult esito = engine.raccogli(oggetto);
         rimuoviElemento(elemento);
         aggiornaHud();
-        mostraMessaggio("Oggetto", esito.messaggio());
+        // Alla chiusura del messaggio, se ora il giocatore ha sia la chiave sia
+        // l'indizio, parte il pensiero che lo indirizza verso il PC di Antonio.
+        mostraMessaggio("Oggetto", esito.messaggio(), () -> {
+            chiudiOverlay();
+            forsePensieroIndagine();
+        });
     }
 
     private void usaUscita(Transition transizione) {
@@ -822,19 +850,32 @@ public class ExplorationView implements GameListener {
     // ----------------------------------------------------------------------
 
     private void mostraMessaggio(String titolo, String corpo) {
+        mostraMessaggio(titolo, corpo, this::chiudiOverlay);
+    }
+
+    /**
+     * Variante con azione personalizzata alla chiusura (il pulsante "Chiudi"): utile
+     * per concatenare al messaggio un dialogo successivo, come il pensiero d'indagine.
+     */
+    private void mostraMessaggio(String titolo, String corpo, Runnable allaChiusura) {
         Label etichettaTitolo = new Label(titolo);
         etichettaTitolo.getStyleClass().add("scene-title");
+        etichettaTitolo.setTextAlignment(TextAlignment.CENTER);
         Label etichettaCorpo = new Label(corpo);
         etichettaCorpo.getStyleClass().add("overlay-subtitle");
         etichettaCorpo.setWrapText(true);
         etichettaCorpo.setMaxWidth(560);
+        etichettaCorpo.setTextAlignment(TextAlignment.CENTER);
 
         Button chiudi = new Button("Chiudi");
         chiudi.getStyleClass().add("game-button");
-        chiudi.setOnAction(e -> chiudiOverlay());
+        chiudi.setOnAction(e -> allaChiusura.run());
 
         VBox pannello = new VBox(20, etichettaTitolo, etichettaCorpo, chiudi);
         pannello.setAlignment(Pos.CENTER);
+        // Senza fillWidth ogni scritta è larga quanto il suo testo e il VBox la centra
+        // come nodo: titolo e corpo restano centrati rispetto al centro dello schermo.
+        pannello.setFillWidth(false);
         // Font pixel VT323, come nel resto del gioco (es. messaggio di raccolta chiave).
         pannello.getStyleClass().add("pixel-font");
         mostraOverlay(velo(pannello), true);

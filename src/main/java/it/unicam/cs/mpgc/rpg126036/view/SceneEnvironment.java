@@ -81,10 +81,12 @@ public final class SceneEnvironment {
                 // fino a x=0.32), un po' in basso e distante dalla porta del laboratorio.
                 new Punto(0.37, 0.40),
                 new Punto(0.60, 0.30),
-                new Punto(0.38, 0.70),
-                new Punto(0.62, 0.70),
+                // I due studenti dell'esame, al centro in basso e ravvicinati, uno di
+                // fronte all'altro (esame_1 a sinistra guarda a destra, esame_2 viceversa).
+                new Punto(0.45, 0.76),
+                new Punto(0.55, 0.76),
                 new Punto(0.85, 0.68)   // chiave: angolo in basso a destra, sul pavimento
-        ), 0.50, 0.76));
+        ), 0.50, 0.55));
     }
 
     /**

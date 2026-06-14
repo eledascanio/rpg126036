@@ -34,7 +34,7 @@ public final class NpcCatalog {
                 // Due NPC di contorno che commentano un esame fallito.
                 new Npc("studente_esame_1", "Studente sconsolato", false,
                         Dialogue.semplice("Hai saputo? Ho fallito di nuovo quell'esame...")),
-                new Npc("studente_esame_2", "Studente comprensivo", false,
+                new Npc("studente_esame_2", "Studentessa comprensiva", false,
                         Dialogue.semplice("Dai, ci riproverai alla prossima sessione."))
         );
     }
