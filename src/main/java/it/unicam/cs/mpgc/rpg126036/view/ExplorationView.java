@@ -8,10 +8,12 @@ import it.unicam.cs.mpgc.rpg126036.engine.GameState;
 import it.unicam.cs.mpgc.rpg126036.engine.GameSummary;
 import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
 import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
+import it.unicam.cs.mpgc.rpg126036.model.Chapter;
 import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
+import it.unicam.cs.mpgc.rpg126036.model.PcVittimaPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
 import it.unicam.cs.mpgc.rpg126036.model.PuzzleOutcome;
@@ -57,6 +59,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Schermata di esplorazione: il giocatore si muove liberamente nell'ambientazione
@@ -124,6 +127,9 @@ public class ExplorationView implements GameListener {
     // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
     // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
     private boolean pensieroIndagineMostrato;
+    // Scena verso cui avanzare automaticamente alla risoluzione dell'enigma, senza
+    // un'uscita da raggiungere (es. il PC della vittima che apre da sé l'email).
+    private String avanzamentoAutomatico;
 
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
@@ -239,6 +245,7 @@ public class ExplorationView implements GameListener {
         mappa.getChildren().clear();
         portaPoloA = null;
         portaPoloB = null;
+        avanzamentoAutomatico = null;
 
         Scene scena = engine.getScenaCorrente();
         titoloScena.setText(scena.getTitolo());
@@ -273,7 +280,13 @@ public class ExplorationView implements GameListener {
                     .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
         }
         for (Transition transizione : engine.transizioniDisponibili()) {
-            aggiungiUscita(transizione);
+            // Nell'aula LA1 l'email si apre da sé sbloccando il PC: la transizione non
+            // diventa un'uscita da raggiungere, ma un avanzamento automatico.
+            if ("aula_la1".equals(scena.getId())) {
+                avanzamentoAutomatico = transizione.idDestinazione();
+            } else {
+                aggiungiUscita(transizione);
+            }
         }
 
         disponiElementi(ambiente.orElse(null));
@@ -386,10 +399,60 @@ public class ExplorationView implements GameListener {
             aggiungiPortaPoloB();
             return;
         }
+        // Il PC della vittima è uno dei sei computer del laboratorio: l'enigma vive
+        // sul PC giusto, gli altri cinque sono "PC sbagliati".
+        if ("pc_vittima".equals(idEnigma)) {
+            aggiungiPcAula(puzzle);
+            return;
+        }
         ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "Enigma", "Esamina l'enigma", Color.web("#9b59b6"));
         e.puzzle = puzzle;
         e.azione = () -> mostraEnigma(puzzle, e);
         registra(e);
+    }
+
+    /**
+     * Dispone i sei PC del laboratorio (due per banco) come punti interattivi
+     * invisibili e indistinguibili. Solo l'ultimo a destra, verso il muro, è il PC
+     * della vittima e apre l'enigma; sui restanti cinque si ottiene "PC sbagliato"
+     * e una penalità di energia. Sono a posizione fissa, in corrispondenza dei monitor.
+     */
+    private void aggiungiPcAula(Puzzle enigma) {
+        double[][] posizioni = {
+                {0.14, 0.50}, {0.25, 0.50},   // banco di sinistra
+                {0.45, 0.50}, {0.56, 0.50},   // banco centrale
+                {0.75, 0.50}, {0.86, 0.50}    // banco di destra: l'ultimo è il PC della vittima
+        };
+        int indiceCorretto = posizioni.length - 1;
+        for (int i = 0; i < posizioni.length; i++) {
+            boolean corretto = (i == indiceCorretto);
+            ElementoScena e = new ElementoScena(corretto ? TipoElemento.ENIGMA : TipoElemento.PORTA,
+                    "", "Esamina il PC", Color.web("#9b59b6"));
+            e.posizioneFissa = true;
+            if (corretto) {
+                e.puzzle = enigma;
+                e.azione = () -> mostraEnigma(enigma, e);
+            } else {
+                e.azione = this::pcSbagliato;
+            }
+            e.setVisibile(false);
+            registra(e);
+            e.posiziona(posizioni[i][0] * MAPPA_LARGHEZZA, posizioni[i][1] * MAPPA_ALTEZZA);
+        }
+    }
+
+    /**
+     * Interazione con un PC sbagliato: penalità di energia e avviso. Se l'energia
+     * si esaurisce scatta il game over.
+     */
+    private void pcSbagliato() {
+        Player player = stato.getPlayer();
+        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        mostraDialogo("", "PC sbagliato.");
     }
 
     /**
@@ -1009,6 +1072,20 @@ public class ExplorationView implements GameListener {
             mostraMessaggio("Enigma", "Hai già superato questo enigma.");
             return;
         }
+        // Il PC della vittima ha più vie di sblocco; la porta del laboratorio usa il
+        // tastierino numerico a quattro cifre.
+        if (puzzle instanceof PcVittimaPuzzle pc) {
+            mostraEnigmaPcVittima(pc, elemento);
+        } else {
+            mostraEnigmaTastierino(puzzle, elemento);
+        }
+    }
+
+    /**
+     * Enigma a combinazione numerica (porta del laboratorio): tastierino a quattro
+     * cifre, pulsante di forza bruta e, in base alla classe, il pensiero-indizio.
+     */
+    private void mostraEnigmaTastierino(Puzzle puzzle, ElementoScena elemento) {
         Player player = stato.getPlayer();
 
         Label etichettaTitolo = new Label("Tastierino numerico");
@@ -1025,61 +1102,27 @@ public class ExplorationView implements GameListener {
         esito.setMaxWidth(420);
         esito.setTextAlignment(TextAlignment.CENTER);
 
-        // Display delle quattro cifre (posizioni vuote come trattini).
-        StringBuilder codice = new StringBuilder();
-        Label display = new Label();
-        display.getStyleClass().add("keypad-display");
-        Runnable aggiornaDisplay = () -> {
-            StringBuilder mostrato = new StringBuilder();
-            for (int i = 0; i < 4; i++) {
-                mostrato.append(i < codice.length() ? codice.charAt(i) : '_');
-                if (i < 3) {
-                    mostrato.append(' ');
-                }
+        VBox tastierino = creaPannelloTastierino(4, codice -> {
+            PuzzleOutcome outcome = puzzle.tenta(player, codice);
+            esito.setText(outcome.messaggio());
+            if (outcome.risolto()) {
+                enigmaRisolto(elemento);
+                return true;
             }
-            display.setText(mostrato.toString());
-        };
-        aggiornaDisplay.run();
+            return false;
+        });
 
-        Consumer<PuzzleOutcome> gestisci = outcome -> {
+        Button forza = new Button("Forza bruta (perdi energia)");
+        forza.getStyleClass().add("game-button");
+        forza.setOnAction(e -> {
+            PuzzleOutcome outcome = puzzle.forzaBruta(player);
             esito.setText(outcome.messaggio());
             if (outcome.risolto()) {
                 enigmaRisolto(elemento);
             }
-        };
-
-        // Tastierino 3x4: cifre 1-9, poi Cancella, 0, Conferma.
-        GridPane tastierino = new GridPane();
-        tastierino.setHgap(8);
-        tastierino.setVgap(8);
-        tastierino.setAlignment(Pos.CENTER);
-        for (int n = 1; n <= 9; n++) {
-            tastierino.add(tastoCifra(String.valueOf(n), codice, aggiornaDisplay), (n - 1) % 3, (n - 1) / 3);
-        }
-        Button cancella = tastoSpeciale("←");
-        cancella.setOnAction(e -> {
-            if (codice.length() > 0) {
-                codice.deleteCharAt(codice.length() - 1);
-                aggiornaDisplay.run();
-            }
         });
-        Button conferma = tastoSpeciale("OK");
-        conferma.setOnAction(e -> {
-            gestisci.accept(puzzle.tenta(player, codice.toString()));
-            if (!puzzle.isRisolto()) {
-                codice.setLength(0);
-                aggiornaDisplay.run();
-            }
-        });
-        tastierino.add(cancella, 0, 3);
-        tastierino.add(tastoCifra("0", codice, aggiornaDisplay), 1, 3);
-        tastierino.add(conferma, 2, 3);
 
-        Button forza = new Button("Forza bruta (perdi energia)");
-        forza.getStyleClass().add("game-button");
-        forza.setOnAction(e -> gestisci.accept(puzzle.forzaBruta(player)));
-
-        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto, display, tastierino, forza, esito);
+        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto, tastierino, forza, esito);
         pannello.setAlignment(Pos.CENTER);
         pannello.setMaxWidth(480);
 
@@ -1099,11 +1142,156 @@ public class ExplorationView implements GameListener {
         mostraOverlay(velo, true);
     }
 
-    /** Crea un tasto-cifra del tastierino: aggiunge la cifra al codice (max 4). */
-    private Button tastoCifra(String cifra, StringBuilder codice, Runnable aggiornaDisplay) {
+    /**
+     * Enigma del PC della vittima: presenta le vie disponibili in base alle
+     * statistiche (analisi del terminale, ricerca di indizi, password
+     * dell'assistente) più la forza bruta sempre disponibile.
+     */
+    private void mostraEnigmaPcVittima(PcVittimaPuzzle puzzle, ElementoScena elemento) {
+        Player player = stato.getPlayer();
+
+        Label etichettaTitolo = new Label("PC della vittima");
+        etichettaTitolo.getStyleClass().add("scene-title");
+        Label etichettaTesto = new Label(puzzle.getTesto());
+        etichettaTesto.getStyleClass().add("overlay-subtitle");
+        etichettaTesto.setWrapText(true);
+        etichettaTesto.setMaxWidth(460);
+        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
+
+        Label esito = new Label();
+        esito.getStyleClass().add("overlay-subtitle");
+        esito.setWrapText(true);
+        esito.setMaxWidth(460);
+        esito.setTextAlignment(TextAlignment.CENTER);
+
+        Consumer<PuzzleOutcome> gestisci = outcome -> {
+            esito.setText(outcome.messaggio());
+            aggiornaHud();
+            if (outcome.risolto()) {
+                enigmaRisolto(elemento);
+            }
+        };
+
+        VBox opzioni = new VBox(12);
+        opzioni.setAlignment(Pos.CENTER);
+        for (String opzione : puzzle.opzioniDisponibili(player)) {
+            Button scelta = new Button(opzione);
+            scelta.getStyleClass().add("game-button");
+            scelta.setMaxWidth(420);
+            switch (opzione) {
+                case "Analizza il terminale" -> scelta.setOnAction(e -> mostraMiniGiocoBinario(puzzle, elemento));
+                case "Cerca indizi intorno alla postazione" ->
+                        scelta.setOnAction(e -> gestisci.accept(puzzle.cercaIndizi(player)));
+                case "Inserisci la password ricevuta dall'assistente" ->
+                        scelta.setOnAction(e -> gestisci.accept(puzzle.usaPasswordAssistente(player)));
+                default -> scelta.setOnAction(e -> gestisci.accept(puzzle.forzaBruta(player)));
+            }
+            opzioni.getChildren().add(scelta);
+        }
+
+        VBox pannello = new VBox(20, etichettaTitolo, etichettaTesto, opzioni, esito);
+        pannello.setAlignment(Pos.CENTER);
+        pannello.setMaxWidth(520);
+        pannello.getStyleClass().add("pixel-font");
+        mostraOverlay(velo(pannello), true);
+    }
+
+    /**
+     * Mini-gioco di Investigazione: converti in decimale il numero binario mostrato.
+     * Usa il tastierino (massimo due cifre, il valore è tra 32 e 63).
+     */
+    private void mostraMiniGiocoBinario(PcVittimaPuzzle puzzle, ElementoScena elemento) {
+        Player player = stato.getPlayer();
+        String consegna = puzzle.analizzaTerminale(player);
+
+        Label etichettaTitolo = new Label("Analisi del terminale");
+        etichettaTitolo.getStyleClass().add("scene-title");
+        Label etichettaTesto = new Label(consegna);
+        etichettaTesto.getStyleClass().add("overlay-subtitle");
+        etichettaTesto.setWrapText(true);
+        etichettaTesto.setMaxWidth(460);
+        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
+
+        Label esito = new Label();
+        esito.getStyleClass().add("overlay-subtitle");
+        esito.setWrapText(true);
+        esito.setMaxWidth(460);
+        esito.setTextAlignment(TextAlignment.CENTER);
+
+        VBox tastierino = creaPannelloTastierino(2, codice -> {
+            PuzzleOutcome outcome = puzzle.tenta(player, codice);
+            esito.setText(outcome.messaggio());
+            aggiornaHud();
+            if (outcome.risolto()) {
+                enigmaRisolto(elemento);
+                return true;
+            }
+            return false;
+        });
+
+        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto, tastierino, esito);
+        pannello.setAlignment(Pos.CENTER);
+        pannello.setMaxWidth(480);
+        pannello.getStyleClass().add("pixel-font");
+        mostraOverlay(velo(pannello), true);
+    }
+
+    /**
+     * Crea un pannello con display e tastierino numerico (al più {@code maxCifre}
+     * cifre). Premendo OK invoca {@code conferma} con le cifre digitate: se torna
+     * {@code false} (codice errato) il display viene azzerato per ritentare.
+     */
+    private VBox creaPannelloTastierino(int maxCifre, Predicate<String> conferma) {
+        StringBuilder codice = new StringBuilder();
+        Label display = new Label();
+        display.getStyleClass().add("keypad-display");
+        Runnable aggiornaDisplay = () -> {
+            StringBuilder mostrato = new StringBuilder();
+            for (int i = 0; i < maxCifre; i++) {
+                mostrato.append(i < codice.length() ? codice.charAt(i) : '_');
+                if (i < maxCifre - 1) {
+                    mostrato.append(' ');
+                }
+            }
+            display.setText(mostrato.toString());
+        };
+        aggiornaDisplay.run();
+
+        GridPane griglia = new GridPane();
+        griglia.setHgap(8);
+        griglia.setVgap(8);
+        griglia.setAlignment(Pos.CENTER);
+        for (int n = 1; n <= 9; n++) {
+            griglia.add(tastoCifra(String.valueOf(n), codice, aggiornaDisplay, maxCifre), (n - 1) % 3, (n - 1) / 3);
+        }
+        Button cancella = tastoSpeciale("←");
+        cancella.setOnAction(e -> {
+            if (codice.length() > 0) {
+                codice.deleteCharAt(codice.length() - 1);
+                aggiornaDisplay.run();
+            }
+        });
+        Button ok = tastoSpeciale("OK");
+        ok.setOnAction(e -> {
+            if (!conferma.test(codice.toString())) {
+                codice.setLength(0);
+                aggiornaDisplay.run();
+            }
+        });
+        griglia.add(cancella, 0, 3);
+        griglia.add(tastoCifra("0", codice, aggiornaDisplay, maxCifre), 1, 3);
+        griglia.add(ok, 2, 3);
+
+        VBox box = new VBox(12, display, griglia);
+        box.setAlignment(Pos.CENTER);
+        return box;
+    }
+
+    /** Crea un tasto-cifra del tastierino: aggiunge la cifra al codice (max {@code maxCifre}). */
+    private Button tastoCifra(String cifra, StringBuilder codice, Runnable aggiornaDisplay, int maxCifre) {
         Button b = tastoSpeciale(cifra);
         b.setOnAction(e -> {
-            if (codice.length() < 4) {
+            if (codice.length() < maxCifre) {
                 codice.append(cifra);
                 aggiornaDisplay.run();
             }
@@ -1151,6 +1339,14 @@ public class ExplorationView implements GameListener {
         rimuoviElemento(elemento);
         aggiornaHud();
         if (engine.verificaGameOver()) {
+            return;
+        }
+        // Avanzamento automatico (es. il PC della vittima apre da sé l'email): non
+        // c'è un'uscita da raggiungere, si passa direttamente alla scena successiva.
+        if (avanzamentoAutomatico != null && !haEnigmaNonRisolto()) {
+            String destinazione = avanzamentoAutomatico;
+            avanzamentoAutomatico = null;
+            engine.avanza(destinazione);
             return;
         }
         engine.verificaUpgradeDisponibile();
@@ -1277,6 +1473,25 @@ public class ExplorationView implements GameListener {
         costruisciElementiScena();
         aggiornaHud();
         verificaCompletamentoCapitolo();
+    }
+
+    /**
+     * All'inizio di un nuovo capitolo ripresenta la sequenza di cartelli usata a
+     * inizio partita: "Capitolo N" e il nome dell'ambientazione, poi l'esplorazione.
+     * La scena corrente è già quella iniziale del nuovo capitolo; {@code onSceneChanged}
+     * (notificato subito dopo) ne ricostruisce gli elementi sulla mappa, pronta a
+     * ricomparire al termine dei cartelli.
+     */
+    @Override
+    public void onChapterAdvanced(Chapter nuovo) {
+        // Dal titolo "Capitolo N: ..." si estrae la sola dicitura "Capitolo N".
+        String etichettaCapitolo = nuovo.getTitolo().split(":", 2)[0].trim();
+        String titoloScena = engine.getScenaCorrente().getTitolo();
+        Runnable vaiAllEsplorazione = () -> context.navigator().mostra(root);
+        Runnable vaiAllaScena = () -> context.navigator().mostra(
+                new ChapterTitleView(context, titoloScena, vaiAllEsplorazione).getRoot());
+        context.navigator().mostra(
+                new ChapterTitleView(context, etichettaCapitolo, vaiAllaScena).getRoot());
     }
 
     /**

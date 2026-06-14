@@ -87,6 +87,19 @@ public final class SceneEnvironment {
                 new Punto(0.55, 0.76),
                 new Punto(0.85, 0.68)   // chiave: angolo in basso a destra, sul pavimento
         ), 0.50, 0.55));
+
+        // Aula LA1 (capitolo 2): laboratorio informatico. Parete superiore con
+        // scaffali, server e bancone; tre banchi di PC; porta in basso a destra.
+        perScena.put("aula_la1", new Ambiente("/images/scene/aula_la1.jpg", List.of(
+                new Muro(0.00, 0.00, 1.00, 0.17),   // parete superiore: scaffali, server, bancone
+                new Muro(0.085, 0.23, 0.22, 0.21),  // banco di PC a sinistra
+                new Muro(0.40, 0.23, 0.21, 0.21),   // banco di PC centrale
+                new Muro(0.70, 0.23, 0.21, 0.21)    // banco di PC a destra
+        ), List.of(
+                // Solo il tecnico usa uno slot: i sei PC hanno posizione fissa sui banchi
+                // e l'uscita (l'email) si apre da sé sbloccando il PC della vittima.
+                new Punto(0.30, 0.62)   // tecnico di laboratorio, davanti ai banchi
+        ), 0.50, 0.88));
     }
 
     /**
