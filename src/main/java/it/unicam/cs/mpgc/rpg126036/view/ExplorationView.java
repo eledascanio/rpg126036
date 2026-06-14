@@ -90,6 +90,13 @@ public class ExplorationView implements GameListener {
     private static final double ALTEZZA_NPC = 58;
     // Energia consumata a ogni dialogo con un NPC (regola di gioco).
     private static final int COSTO_ENERGIA_DIALOGO = 10;
+    // Energia persa forzando il PC della vittima (via di riserva, sempre disponibile).
+    private static final int COSTO_FORZA_BRUTA_PC = 30;
+    // XP guadagnati sbloccando il PC della vittima, in qualunque modo avvenga.
+    private static final int PC_XP = 50;
+    // Numero binario da convertire (enigma del PC, via Investigazione) e sua soluzione.
+    private static final String PC_BINARIO = "11010";
+    private static final String PC_SOLUZIONE = "26";
 
     private final AppContext context;
     private final GameEngine engine;
@@ -437,11 +444,145 @@ public class ExplorationView implements GameListener {
     }
 
     /**
-     * Interazione con il PC della vittima: la password si inserisce automaticamente
-     * e, alla conferma, si apre la mail. Non c'è alcun menù di sblocco.
+     * Interazione con il PC della vittima. Le vie, in ordine di priorità:
+     * <ul>
+     *     <li>password ottenuta dal tecnico (Carisma + dialogo): inserimento diretto;</li>
+     *     <li>Investigazione e Intuizione &ge; 1: scelta tra enigma binario e ricerca indizi;</li>
+     *     <li>solo Investigazione &ge; 1: enigma binario;</li>
+     *     <li>solo Intuizione &ge; 1: ricerca del foglietto con la password;</li>
+     *     <li>nessuna: solo forza bruta.</li>
+     * </ul>
+     * In ogni caso lo sblocco assegna {@value #PC_XP} XP (in {@link #pcVittimaRisolto}).
      */
     private void apriPcVittima(ElementoScena elemento) {
-        mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
+        Player player = stato.getPlayer();
+        if (stato.hasFlag(ContentResolver.FLAG_ASSISTENTE)) {
+            mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
+            return;
+        }
+        boolean investigatore = player.getStatistica(StatType.INVESTIGAZIONE) >= 1;
+        boolean intuitivo = player.getStatistica(StatType.INTUIZIONE) >= 1;
+        if (investigatore && intuitivo) {
+            mostraSceltaViePc(elemento);
+        } else if (investigatore) {
+            mostraEnigmaBinario(elemento);
+        } else if (intuitivo) {
+            cercaIndiziPc(elemento);
+        } else {
+            mostraForzaBrutaPc(elemento);
+        }
+    }
+
+    /**
+     * Con Investigazione e Intuizione il giocatore sceglie la via: analizzare il
+     * terminale (enigma binario) o cercare indizi (il foglietto con la password).
+     * Resta comunque disponibile la forza bruta.
+     */
+    private void mostraSceltaViePc(ElementoScena elemento) {
+        VBox pannello = pannelloPc("Il terminale è protetto. Come procedi?");
+
+        Button analizza = new Button("Analizza il terminale");
+        analizza.getStyleClass().add("game-button");
+        analizza.setMaxWidth(380);
+        analizza.setOnAction(e -> mostraEnigmaBinario(elemento));
+
+        Button cerca = new Button("Cerca indizi intorno alla postazione");
+        cerca.getStyleClass().add("game-button");
+        cerca.setMaxWidth(380);
+        cerca.setOnAction(e -> cercaIndiziPc(elemento));
+
+        pannello.getChildren().addAll(analizza, cerca, bottoneForzaBrutaPc(elemento));
+        mostraOverlay(velo(pannello), true);
+    }
+
+    /**
+     * Enigma binario (via Investigazione): converti {@value #PC_BINARIO} in decimale
+     * ({@value #PC_SOLUZIONE}). Ogni tentativo errato costa {@link #COSTO_ENERGIA_DIALOGO}
+     * di energia; resta disponibile la forza bruta.
+     */
+    private void mostraEnigmaBinario(ElementoScena elemento) {
+        Player player = stato.getPlayer();
+        VBox pannello = pannelloPc("Il terminale è protetto. Converti in decimale il numero binario "
+                + PC_BINARIO + " per ricavare la password.");
+
+        Label esito = new Label();
+        esito.getStyleClass().add("overlay-subtitle");
+        esito.setWrapText(true);
+        esito.setMaxWidth(460);
+        esito.setTextAlignment(TextAlignment.CENTER);
+
+        VBox tastierino = creaPannelloTastierino(2, codice -> {
+            if (PC_SOLUZIONE.equals(codice)) {
+                mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
+                return true;
+            }
+            player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
+            aggiornaHud();
+            if (engine.verificaGameOver()) {
+                return true;
+            }
+            esito.setText("Conversione errata. Riprova. (-" + COSTO_ENERGIA_DIALOGO + " energia)");
+            return false;
+        });
+
+        pannello.getChildren().addAll(tastierino, bottoneForzaBrutaPc(elemento), esito);
+        mostraOverlay(velo(pannello), true);
+    }
+
+    /**
+     * Via Intuizione: il sesto senso del personaggio trova il foglietto con la
+     * password sotto la tastiera. Nessun costo di energia; lo sblocco è immediato.
+     */
+    private void cercaIndiziPc(ElementoScena elemento) {
+        mostraDialogo("", "Esamini attentamente la postazione. Sotto la tastiera noti un minuscolo "
+                + "pezzo di carta strappato. C'è scritto qualcosa a matita: è la password personale "
+                + "della vittima!", () -> pcVittimaRisolto(elemento), List.of());
+    }
+
+    /**
+     * Schermata per chi non ha vie agevolate: resta solo la forza bruta.
+     */
+    private void mostraForzaBrutaPc(ElementoScena elemento) {
+        VBox pannello = pannelloPc("Il terminale è protetto da una password che non conosci.");
+        pannello.getChildren().add(bottoneForzaBrutaPc(elemento));
+        mostraOverlay(velo(pannello), true);
+    }
+
+    /** Pannello base (titolo + testo) condiviso dalle schermate del PC della vittima. */
+    private VBox pannelloPc(String descrizione) {
+        Label titolo = new Label("Terminale di Antonio");
+        titolo.getStyleClass().add("scene-title");
+        titolo.setAlignment(Pos.CENTER);
+        Label testo = new Label(descrizione);
+        testo.getStyleClass().add("overlay-subtitle");
+        testo.setWrapText(true);
+        testo.setMaxWidth(460);
+        testo.setTextAlignment(TextAlignment.CENTER);
+        // Senza questo il testo, in un VBox fillWidth, resterebbe ancorato a sinistra.
+        testo.setAlignment(Pos.CENTER);
+        testo.setMaxWidth(Double.MAX_VALUE);
+
+        VBox pannello = new VBox(16, titolo, testo);
+        pannello.setAlignment(Pos.CENTER);
+        pannello.setMaxWidth(480);
+        pannello.getStyleClass().add("pixel-font");
+        return pannello;
+    }
+
+    /** Pulsante "Forza bruta" del PC: penalità di energia, poi sblocco e mail. */
+    private Button bottoneForzaBrutaPc(ElementoScena elemento) {
+        Button forza = new Button("Forza bruta (perdi energia)");
+        forza.getStyleClass().add("game-button");
+        forza.setOnAction(e -> {
+            stato.getPlayer().riduciEnergia(COSTO_FORZA_BRUTA_PC);
+            aggiornaHud();
+            if (engine.verificaGameOver()) {
+                return;
+            }
+            mostraDialogo("", "Dopo svariati tentativi il terminale cede.",
+                    () -> pcVittimaRisolto(elemento), List.of());
+        });
+        return forza;
     }
 
     /**
@@ -1030,6 +1171,8 @@ public class ExplorationView implements GameListener {
      * all'aula con personaggio e NPC invariati.
      */
     private void pcVittimaRisolto(ElementoScena elemento) {
+        // Sbloccare il PC assegna sempre gli XP, qualunque via sia stata usata.
+        stato.getPlayer().aggiungiXp(PC_XP);
         rimuoviElemento(elemento);
         aggiornaHud();
         if (engine.verificaGameOver()) {
@@ -1085,7 +1228,25 @@ public class ExplorationView implements GameListener {
         mostraDialogo(stato.getPlayer().getNome(),
                 "Mmhhh… EM... delle iniziali? Non corrispondono però al nome di Alex con cui era "
                         + "stato visto litigare prima.",
-                this::chiudiOverlay, List.of());
+                this::concludiCapitoloDue, List.of());
+    }
+
+    /**
+     * Fine del capitolo 2: schermata di potenziamento statistica (come a fine
+     * capitolo 1), poi il cartello "Capitolo 3". Il personaggio non viene spostato:
+     * al termine del cartello si torna all'aula nella posizione corrente.
+     */
+    private void concludiCapitoloDue() {
+        mostraSceltaUpgrade("Capitolo completato",
+                "Scegli una statistica da potenziare prima del prossimo capitolo:",
+                statistica -> {
+                    Player player = stato.getPlayer();
+                    player.ripristinaEnergia(Player.ENERGIA_MASSIMA);
+                    player.aumentaStatistica(statistica, 1);
+                    aggiornaHud();
+                    context.navigator().mostra(new ChapterTitleView(context, "Capitolo 3",
+                            () -> context.navigator().mostra(root)).getRoot());
+                });
     }
 
     /**

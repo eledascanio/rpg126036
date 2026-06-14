@@ -59,14 +59,14 @@ public final class NpcCatalog {
 
     /**
      * Livello 2: il tecnico di laboratorio. Fornisce la password del PC solo con
-     * Carisma &ge; 2, altrimenti resta sotto shock.
+     * Carisma &ge; 1, altrimenti resta sotto shock.
      *
      * @return l'NPC tecnico di laboratorio
      */
     public static Npc tecnicoLaboratorio() {
         return new Npc("tecnico_laboratorio", "Tecnico di laboratorio", true,
                 Dialogue.condizionato(
-                        new StatRequirement(StatType.CARISMA, 2),
+                        new StatRequirement(StatType.CARISMA, 1),
                         TECNICO_BATTUTA_1,
                         "Che tragedia..."));
     }
