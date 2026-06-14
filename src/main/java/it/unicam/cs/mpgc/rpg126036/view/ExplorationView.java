@@ -83,6 +83,8 @@ public class ExplorationView implements GameListener {
     private static final double ALTEZZA_OGGETTO = 32;
     // Altezza degli NPC con sprite dedicato (poco meno del personaggio giocante).
     private static final double ALTEZZA_NPC = 58;
+    // Energia consumata a ogni dialogo con un NPC (regola di gioco).
+    private static final int COSTO_ENERGIA_DIALOGO = 10;
 
     private final AppContext context;
     private final GameEngine engine;
@@ -618,6 +620,12 @@ public class ExplorationView implements GameListener {
 
     private void interagisciConNpc(Npc npc) {
         Player player = stato.getPlayer();
+        // Parlare con un NPC costa energia; se si esaurisce, scatta il game over.
+        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
         String battuta = npc.parla(player);
 
         StringBuilder testo = new StringBuilder(battuta);
@@ -877,6 +885,8 @@ public class ExplorationView implements GameListener {
 
         VBox pannello = new VBox(24, etichettaTitolo, etichettaSub, menu);
         pannello.setAlignment(Pos.CENTER);
+        // Font pixel VT323, come nel resto del gioco.
+        pannello.getStyleClass().add("pixel-font");
         mostraOverlay(velo(pannello), false);
     }
 
