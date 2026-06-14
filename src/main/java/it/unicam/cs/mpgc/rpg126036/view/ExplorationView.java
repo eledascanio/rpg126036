@@ -18,7 +18,10 @@ import it.unicam.cs.mpgc.rpg126036.model.StatType;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
 import it.unicam.cs.mpgc.rpg126036.persistence.Campaign;
 import it.unicam.cs.mpgc.rpg126036.persistence.SceneContents;
+import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -42,6 +45,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.TextAlignment;
+import javafx.util.Duration;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -77,6 +81,8 @@ public class ExplorationView implements GameListener {
     private static final double RAGGIO_INTERAZIONE = 52;
     // Altezza degli oggetti raccoglibili che hanno uno sprite dedicato.
     private static final double ALTEZZA_OGGETTO = 32;
+    // Altezza degli NPC con sprite dedicato (poco meno del personaggio giocante).
+    private static final double ALTEZZA_NPC = 58;
 
     private final AppContext context;
     private final GameEngine engine;
@@ -110,6 +116,12 @@ public class ExplorationView implements GameListener {
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
     private boolean overlayChiudibile;
+
+    // Ritmo dell'effetto macchina da scrivere dei dialoghi (come la schermata iniziale).
+    private static final Duration RITMO_DIALOGO = Duration.millis(18);
+    // Dialogo NPC eventualmente in corso: animazione e azione di avanzamento/chiusura.
+    private Timeline dialogoMacchina;
+    private Runnable avanzamentoDialogo;
 
     public ExplorationView(AppContext context, GameSession session) {
         this.context = Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
@@ -299,8 +311,13 @@ public class ExplorationView implements GameListener {
     }
 
     private void aggiungiNpc(Npc npc) {
-        ElementoScena e = new ElementoScena(TipoElemento.NPC, npc.getNome(),
-                "Parla con " + npc.getNome(), Color.web("#4a90d9"));
+        String etichettaAzione = "Parla con " + npc.getNome();
+        ImageView sprite = caricaSprite("/images/sprite/npc/" + npc.getId() + ".png", ALTEZZA_NPC);
+        // Con lo sprite dedicato l'NPC si mostra come immagine, senza il nome sotto;
+        // senza sprite si ripiega sul segnaposto colorato con nome.
+        ElementoScena e = (sprite != null)
+                ? new ElementoScena(TipoElemento.NPC, etichettaAzione, sprite)
+                : new ElementoScena(TipoElemento.NPC, npc.getNome(), etichettaAzione, Color.web("#4a90d9"));
         e.azione = () -> interagisciConNpc(npc);
         registra(e);
     }
@@ -308,7 +325,7 @@ public class ExplorationView implements GameListener {
     private void aggiungiOggetto(ItemInteraction oggetto) {
         var item = oggetto.getItem();
         String etichettaAzione = "Raccogli " + item.nome();
-        ImageView sprite = caricaSpriteOggetto(item.id());
+        ImageView sprite = caricaSprite("/images/sprite/oggetti/" + item.id() + ".png", ALTEZZA_OGGETTO);
         // Con lo sprite dedicato l'oggetto si mostra come immagine, senza il nome
         // sotto; senza sprite si ripiega sul vecchio segnaposto colorato con nome.
         ElementoScena e = (sprite != null)
@@ -319,18 +336,20 @@ public class ExplorationView implements GameListener {
     }
 
     /**
-     * Carica lo sprite di un oggetto raccoglibile, se presente fra le risorse.
+     * Carica uno sprite dalle risorse, se presente, dimensionandolo all'altezza
+     * indicata (larghezza proporzionale, bordi netti per la pixel art).
      *
-     * @param idItem id dell'oggetto (nome del file in {@code /images/sprite/oggetti})
-     * @return l'ImageView pronto, oppure {@code null} se non esiste uno sprite
+     * @param percorso percorso classpath dello sprite
+     * @param altezza  altezza desiderata in pixel
+     * @return l'ImageView pronto, oppure {@code null} se la risorsa non esiste
      */
-    private ImageView caricaSpriteOggetto(String idItem) {
-        InputStream risorsa = getClass().getResourceAsStream("/images/sprite/oggetti/" + idItem + ".png");
+    private ImageView caricaSprite(String percorso, double altezza) {
+        InputStream risorsa = getClass().getResourceAsStream(percorso);
         if (risorsa == null) {
             return null;
         }
         ImageView vista = new ImageView(new Image(risorsa));
-        vista.setFitHeight(ALTEZZA_OGGETTO);
+        vista.setFitHeight(altezza);
         vista.setPreserveRatio(true);
         vista.setSmooth(false);
         return vista;
@@ -571,6 +590,11 @@ public class ExplorationView implements GameListener {
     }
 
     private void interagisci() {
+        // Con un dialogo aperto, E lo fa avanzare (completa il testo o lo chiude).
+        if (avanzamentoDialogo != null) {
+            avanzamentoDialogo.run();
+            return;
+        }
         if (overlayCorrente == null && !engine.isInPausa() && elementoVicino != null) {
             elementoVicino.azione.run();
         }
@@ -608,7 +632,7 @@ public class ExplorationView implements GameListener {
                 }
             });
         }
-        mostraMessaggio(npc.getNome(), testo.toString());
+        mostraDialogo(npc.getNome(), testo.toString());
     }
 
     private void raccogliOggetto(ItemInteraction oggetto, ElementoScena elemento) {
@@ -676,6 +700,70 @@ public class ExplorationView implements GameListener {
         pannello.setAlignment(Pos.CENTER);
         // Non chiudibile con ESC: si prosegue solo dal pulsante.
         mostraOverlay(velo(pannello), false);
+    }
+
+    /**
+     * Mostra un dialogo NPC come finestra (dialog box) nella parte bassa dello
+     * schermo, con il testo che compare un carattere alla volta (effetto macchina
+     * da scrivere). Un clic o il tasto E completano subito il testo se è in corso,
+     * altrimenti chiudono il dialogo; lo stesso fa ESC.
+     */
+    private void mostraDialogo(String nome, String testo) {
+        Label etichettaNome = new Label(nome);
+        etichettaNome.getStyleClass().add("dialog-name");
+
+        Label etichettaTesto = new Label();
+        etichettaTesto.getStyleClass().add("dialog-text");
+        etichettaTesto.setWrapText(true);
+        etichettaTesto.setMaxWidth(Double.MAX_VALUE);
+
+        Label prompt = new Label("▼  E / clic per proseguire");
+        prompt.getStyleClass().add("dialog-prompt");
+        HBox rigaPrompt = new HBox(prompt);
+        rigaPrompt.setAlignment(Pos.CENTER_RIGHT);
+
+        // Striscia orizzontale in basso: nome in alto, testo al centro (2-3 righe),
+        // indicatore in basso a destra.
+        BorderPane box = new BorderPane();
+        box.getStyleClass().addAll("dialog-box", "pixel-font");
+        box.setTop(etichettaNome);
+        box.setCenter(etichettaTesto);
+        box.setBottom(rigaPrompt);
+        BorderPane.setAlignment(etichettaTesto, Pos.TOP_LEFT);
+        BorderPane.setMargin(etichettaTesto, new Insets(6, 0, 6, 0));
+
+        // Larghezza piena, altezza limitata a ~28% dello schermo, ancorata in basso:
+        // il resto della scena (mappa e personaggi) resta visibile sopra la barra.
+        box.setMaxWidth(Double.MAX_VALUE);
+        box.prefHeightProperty().bind(root.heightProperty().multiply(0.28));
+        box.setMaxHeight(Region.USE_PREF_SIZE);
+        StackPane.setAlignment(box, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(box, new Insets(0, 16, 16, 16));
+
+        // Effetto macchina da scrivere: un carattere a ogni frame.
+        int[] indice = {0};
+        Timeline macchina = new Timeline(new KeyFrame(RITMO_DIALOGO, e -> {
+            indice[0]++;
+            etichettaTesto.setText(testo.substring(0, indice[0]));
+        }));
+        macchina.setCycleCount(testo.length());
+
+        Runnable avanzamento = () -> {
+            if (macchina.getStatus() == Animation.Status.RUNNING) {
+                // Prima rivelazione completa, poi (al successivo input) chiusura.
+                macchina.stop();
+                etichettaTesto.setText(testo);
+            } else {
+                chiudiOverlay();
+            }
+        };
+        box.setOnMouseClicked(e -> avanzamento.run());
+
+        // I campi vanno impostati dopo mostraOverlay, che azzera lo stato precedente.
+        mostraOverlay(box, true);
+        dialogoMacchina = macchina;
+        avanzamentoDialogo = avanzamento;
+        macchina.play();
     }
 
     private void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
@@ -820,6 +908,12 @@ public class ExplorationView implements GameListener {
     }
 
     private void chiudiOverlay() {
+        // Ferma l'eventuale dialogo in corso prima di rimuovere il pannello.
+        if (dialogoMacchina != null) {
+            dialogoMacchina.stop();
+            dialogoMacchina = null;
+        }
+        avanzamentoDialogo = null;
         if (overlayCorrente != null) {
             root.getChildren().remove(overlayCorrente);
             overlayCorrente = null;
