@@ -14,7 +14,6 @@ import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
 import it.unicam.cs.mpgc.rpg126036.model.NpcCatalog;
-import it.unicam.cs.mpgc.rpg126036.model.PcVittimaPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
 import it.unicam.cs.mpgc.rpg126036.model.PuzzleOutcome;
@@ -128,9 +127,6 @@ public class ExplorationView implements GameListener {
     // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
     // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
     private boolean pensieroIndagineMostrato;
-    // Scena verso cui avanzare automaticamente alla risoluzione dell'enigma, senza
-    // un'uscita da raggiungere (es. il PC della vittima che apre da sé l'email).
-    private String avanzamentoAutomatico;
 
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
@@ -246,7 +242,6 @@ public class ExplorationView implements GameListener {
         mappa.getChildren().clear();
         portaPoloA = null;
         portaPoloB = null;
-        avanzamentoAutomatico = null;
 
         Scene scena = engine.getScenaCorrente();
         titoloScena.setText(scena.getTitolo());
@@ -281,11 +276,9 @@ public class ExplorationView implements GameListener {
                     .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
         }
         for (Transition transizione : engine.transizioniDisponibili()) {
-            // Nell'aula LA1 l'email si apre da sé sbloccando il PC: la transizione non
-            // diventa un'uscita da raggiungere, ma un avanzamento automatico.
-            if ("aula_la1".equals(scena.getId())) {
-                avanzamentoAutomatico = transizione.idDestinazione();
-            } else {
+            // Nell'aula LA1 la mail è mostrata come overlay sbloccando il PC: la sua
+            // transizione non diventa un'uscita da raggiungere.
+            if (!"aula_la1".equals(scena.getId())) {
                 aggiungiUscita(transizione);
             }
         }
@@ -406,10 +399,10 @@ public class ExplorationView implements GameListener {
             aggiungiPortaPoloB();
             return;
         }
-        // Il PC della vittima è uno dei sei computer del laboratorio: l'enigma vive
-        // sul PC giusto, gli altri cinque sono "PC sbagliati".
+        // Il PC della vittima è uno dei sei computer del laboratorio: il PC giusto
+        // apre direttamente la mail, gli altri cinque sono "PC sbagliati".
         if ("pc_vittima".equals(idEnigma)) {
-            aggiungiPcAula(puzzle);
+            aggiungiPcAula();
             return;
         }
         ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "Enigma", "Esamina l'enigma", Color.web("#9b59b6"));
@@ -421,10 +414,11 @@ public class ExplorationView implements GameListener {
     /**
      * Dispone i sei PC del laboratorio (due per banco) come punti interattivi
      * invisibili e indistinguibili. Solo l'ultimo a destra, verso il muro, è il PC
-     * della vittima e apre l'enigma; sui restanti cinque si ottiene "PC sbagliato"
-     * e una penalità di energia. Sono a posizione fissa, in corrispondenza dei monitor.
+     * della vittima: interagendovi la password si inserisce da sé e si apre la mail.
+     * Sui restanti cinque si ottiene "PC sbagliato" e una penalità di energia. Sono
+     * a posizione fissa, in corrispondenza dei monitor.
      */
-    private void aggiungiPcAula(Puzzle enigma) {
+    private void aggiungiPcAula() {
         double[][] posizioni = {
                 {0.14, 0.50}, {0.25, 0.50},   // banco di sinistra
                 {0.45, 0.50}, {0.56, 0.50},   // banco centrale
@@ -433,19 +427,21 @@ public class ExplorationView implements GameListener {
         int indiceCorretto = posizioni.length - 1;
         for (int i = 0; i < posizioni.length; i++) {
             boolean corretto = (i == indiceCorretto);
-            ElementoScena e = new ElementoScena(corretto ? TipoElemento.ENIGMA : TipoElemento.PORTA,
-                    "", "Esamina il PC", Color.web("#9b59b6"));
+            ElementoScena e = new ElementoScena(TipoElemento.PORTA, "", "Esamina il PC", Color.web("#9b59b6"));
             e.posizioneFissa = true;
-            if (corretto) {
-                e.puzzle = enigma;
-                e.azione = () -> mostraEnigma(enigma, e);
-            } else {
-                e.azione = this::pcSbagliato;
-            }
+            e.azione = corretto ? () -> apriPcVittima(e) : this::pcSbagliato;
             e.setVisibile(false);
             registra(e);
             e.posiziona(posizioni[i][0] * MAPPA_LARGHEZZA, posizioni[i][1] * MAPPA_ALTEZZA);
         }
+    }
+
+    /**
+     * Interazione con il PC della vittima: la password si inserisce automaticamente
+     * e, alla conferma, si apre la mail. Non c'è alcun menù di sblocco.
+     */
+    private void apriPcVittima(ElementoScena elemento) {
+        mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
     }
 
     /**
@@ -1029,6 +1025,70 @@ public class ExplorationView implements GameListener {
     }
 
     /**
+     * Esito dello sblocco del PC della vittima: il contenuto (la mail) si mostra
+     * come overlay sopra l'aula, senza cambiare scena, così alla chiusura si torna
+     * all'aula con personaggio e NPC invariati.
+     */
+    private void pcVittimaRisolto(ElementoScena elemento) {
+        rimuoviElemento(elemento);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        mostraEmailVittima();
+    }
+
+    /**
+     * Mostra a tutto schermo la mail minatoria trovata sul PC: mittente in alto,
+     * corpo al centro. Registra l'indizio sul mittente e, alla chiusura, fa partire
+     * il pensiero del giocatore sulle iniziali.
+     */
+    private void mostraEmailVittima() {
+        engine.trovaIndizio(ClueCatalog.emailMittente());
+
+        Label mittente = new Label("Mittente: em.informatica@gmail.com");
+        mittente.getStyleClass().add("scene-title");
+        Label corpo = new Label("Pensavi non me ne accorgessi? Dobbiamo parlare. Vediamoci in Aula B a "
+                + "00:30, o stavolta finisce malissimo, non scherzo.");
+        corpo.getStyleClass().add("overlay-subtitle");
+        corpo.setWrapText(true);
+        corpo.setMaxWidth(640);
+
+        Button chiudi = new Button("Chiudi");
+        chiudi.getStyleClass().add("game-button");
+        chiudi.setOnAction(e -> {
+            chiudiOverlay();
+            mostraPensieroEmail();
+        });
+
+        // Mittente ancorato in alto, corpo al centro, pulsante in basso: come una mail.
+        VBox intestazione = new VBox(mittente);
+        intestazione.setAlignment(Pos.TOP_LEFT);
+        BorderPane mail = new BorderPane();
+        mail.setTop(intestazione);
+        mail.setCenter(corpo);
+        mail.setBottom(chiudi);
+        BorderPane.setAlignment(chiudi, Pos.CENTER);
+        BorderPane.setMargin(corpo, new Insets(32, 0, 32, 0));
+        mail.setPadding(new Insets(48));
+        // Riempie lo schermo, così il mittente resta ancorato in alto.
+        mail.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        mail.getStyleClass().add("pixel-font");
+        mostraOverlay(velo(mail), false);
+    }
+
+    /**
+     * Pensiero del giocatore dopo aver letto la mail: le iniziali del mittente non
+     * combaciano con Alex. Alla chiusura conclude il capitolo.
+     */
+    private void mostraPensieroEmail() {
+        mostraDialogo(stato.getPlayer().getNome(),
+                "Mmhhh… EM... delle iniziali? Non corrispondono però al nome di Alex con cui era "
+                        + "stato visto litigare prima.",
+                this::chiudiOverlay, List.of());
+    }
+
+    /**
      * Mostra un dialogo NPC come finestra (dialog box) nella parte bassa dello
      * schermo, con il testo che compare un carattere alla volta (effetto macchina
      * da scrivere). Un clic o il tasto E completano subito il testo se è in corso,
@@ -1131,13 +1191,8 @@ public class ExplorationView implements GameListener {
             mostraMessaggio("Enigma", "Hai già superato questo enigma.");
             return;
         }
-        // Il PC della vittima ha più vie di sblocco; la porta del laboratorio usa il
-        // tastierino numerico a quattro cifre.
-        if (puzzle instanceof PcVittimaPuzzle pc) {
-            mostraEnigmaPcVittima(pc, elemento);
-        } else {
-            mostraEnigmaTastierino(puzzle, elemento);
-        }
+        // Enigma a combinazione numerica (porta del laboratorio): tastierino a 4 cifre.
+        mostraEnigmaTastierino(puzzle, elemento);
     }
 
     /**
@@ -1199,100 +1254,6 @@ public class ExplorationView implements GameListener {
         StackPane velo = new StackPane(contenuto);
         velo.getStyleClass().addAll("overlay-veil", "pixel-font");
         mostraOverlay(velo, true);
-    }
-
-    /**
-     * Enigma del PC della vittima: presenta le vie disponibili in base alle
-     * statistiche (analisi del terminale, ricerca di indizi, password
-     * dell'assistente) più la forza bruta sempre disponibile.
-     */
-    private void mostraEnigmaPcVittima(PcVittimaPuzzle puzzle, ElementoScena elemento) {
-        Player player = stato.getPlayer();
-
-        Label etichettaTitolo = new Label("PC della vittima");
-        etichettaTitolo.getStyleClass().add("scene-title");
-        Label etichettaTesto = new Label(puzzle.getTesto());
-        etichettaTesto.getStyleClass().add("overlay-subtitle");
-        etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(460);
-        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
-
-        Label esito = new Label();
-        esito.getStyleClass().add("overlay-subtitle");
-        esito.setWrapText(true);
-        esito.setMaxWidth(460);
-        esito.setTextAlignment(TextAlignment.CENTER);
-
-        Consumer<PuzzleOutcome> gestisci = outcome -> {
-            esito.setText(outcome.messaggio());
-            aggiornaHud();
-            if (outcome.risolto()) {
-                enigmaRisolto(elemento);
-            }
-        };
-
-        VBox opzioni = new VBox(12);
-        opzioni.setAlignment(Pos.CENTER);
-        for (String opzione : puzzle.opzioniDisponibili(player)) {
-            Button scelta = new Button(opzione);
-            scelta.getStyleClass().add("game-button");
-            scelta.setMaxWidth(420);
-            switch (opzione) {
-                case "Analizza il terminale" -> scelta.setOnAction(e -> mostraMiniGiocoBinario(puzzle, elemento));
-                case "Cerca indizi intorno alla postazione" ->
-                        scelta.setOnAction(e -> gestisci.accept(puzzle.cercaIndizi(player)));
-                case "Inserisci la password ricevuta dall'assistente" ->
-                        scelta.setOnAction(e -> gestisci.accept(puzzle.usaPasswordAssistente(player)));
-                default -> scelta.setOnAction(e -> gestisci.accept(puzzle.forzaBruta(player)));
-            }
-            opzioni.getChildren().add(scelta);
-        }
-
-        VBox pannello = new VBox(20, etichettaTitolo, etichettaTesto, opzioni, esito);
-        pannello.setAlignment(Pos.CENTER);
-        pannello.setMaxWidth(520);
-        pannello.getStyleClass().add("pixel-font");
-        mostraOverlay(velo(pannello), true);
-    }
-
-    /**
-     * Mini-gioco di Investigazione: converti in decimale il numero binario mostrato.
-     * Usa il tastierino (massimo due cifre, il valore è tra 32 e 63).
-     */
-    private void mostraMiniGiocoBinario(PcVittimaPuzzle puzzle, ElementoScena elemento) {
-        Player player = stato.getPlayer();
-        String consegna = puzzle.analizzaTerminale(player);
-
-        Label etichettaTitolo = new Label("Analisi del terminale");
-        etichettaTitolo.getStyleClass().add("scene-title");
-        Label etichettaTesto = new Label(consegna);
-        etichettaTesto.getStyleClass().add("overlay-subtitle");
-        etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(460);
-        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
-
-        Label esito = new Label();
-        esito.getStyleClass().add("overlay-subtitle");
-        esito.setWrapText(true);
-        esito.setMaxWidth(460);
-        esito.setTextAlignment(TextAlignment.CENTER);
-
-        VBox tastierino = creaPannelloTastierino(2, codice -> {
-            PuzzleOutcome outcome = puzzle.tenta(player, codice);
-            esito.setText(outcome.messaggio());
-            aggiornaHud();
-            if (outcome.risolto()) {
-                enigmaRisolto(elemento);
-                return true;
-            }
-            return false;
-        });
-
-        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto, tastierino, esito);
-        pannello.setAlignment(Pos.CENTER);
-        pannello.setMaxWidth(480);
-        pannello.getStyleClass().add("pixel-font");
-        mostraOverlay(velo(pannello), true);
     }
 
     /**
@@ -1398,14 +1359,6 @@ public class ExplorationView implements GameListener {
         rimuoviElemento(elemento);
         aggiornaHud();
         if (engine.verificaGameOver()) {
-            return;
-        }
-        // Avanzamento automatico (es. il PC della vittima apre da sé l'email): non
-        // c'è un'uscita da raggiungere, si passa direttamente alla scena successiva.
-        if (avanzamentoAutomatico != null && !haEnigmaNonRisolto()) {
-            String destinazione = avanzamentoAutomatico;
-            avanzamentoAutomatico = null;
-            engine.avanza(destinazione);
             return;
         }
         engine.verificaUpgradeDisponibile();
