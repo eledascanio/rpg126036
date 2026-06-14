@@ -13,6 +13,7 @@ import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
+import it.unicam.cs.mpgc.rpg126036.model.NpcCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.PcVittimaPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
@@ -349,11 +350,17 @@ public class ExplorationView implements GameListener {
         ElementoScena e = (sprite != null)
                 ? new ElementoScena(TipoElemento.NPC, etichettaAzione, sprite)
                 : new ElementoScena(TipoElemento.NPC, npc.getNome(), etichettaAzione, Color.web("#4a90d9"));
-        // Lo studente ubriaco ha un'interazione su misura (recupero energia col
-        // Carisma e dialogo a scelte); gli altri NPC usano il dialogo standard.
-        e.azione = "studente_ubriaco".equals(npc.getId())
-                ? () -> interagisciConStudenteUbriaco(npc)
-                : () -> interagisciConNpc(npc);
+        // Alcuni NPC hanno un'interazione su misura: lo studente ubriaco (recupero
+        // energia col Carisma e scelte) e il tecnico (scambio a più battute); gli
+        // altri usano il dialogo standard.
+        String id = npc.getId();
+        if ("studente_ubriaco".equals(id)) {
+            e.azione = () -> interagisciConStudenteUbriaco(npc);
+        } else if ("tecnico_laboratorio".equals(id)) {
+            e.azione = () -> interagisciConTecnico(npc);
+        } else {
+            e.azione = () -> interagisciConNpc(npc);
+        }
         registra(e);
     }
 
@@ -808,10 +815,6 @@ public class ExplorationView implements GameListener {
 
         StringBuilder testo = new StringBuilder(battuta);
         if (npc.getDialogo().isAccessibile(player)) {
-            // L'aver parlato con l'assistente abilita la via "Carisma" del PC della vittima.
-            if ("tecnico_laboratorio".equals(npc.getId())) {
-                stato.setFlag(ContentResolver.FLAG_ASSISTENTE);
-            }
             resolver.indizioDi(npc.getId()).ifPresent(indizio -> {
                 if (engine.trovaIndizio(indizio)) {
                     testo.append("\n\n🔎 Nuovo indizio nel diario: ").append(indizio.titolo());
@@ -819,6 +822,62 @@ public class ExplorationView implements GameListener {
             });
         }
         mostraDialogo(npc.getNome(), testo.toString());
+    }
+
+    /**
+     * Interazione su misura con il tecnico di laboratorio. Costa energia come ogni
+     * dialogo; con Carisma sufficiente lo scambio si svolge in tre battute scorrevoli
+     * (tecnico, giocatore, tecnico) e sblocca la password del PC. Sotto soglia il
+     * tecnico resta sotto shock e non rivela nulla.
+     */
+    private void interagisciConTecnico(Npc npc) {
+        Player player = stato.getPlayer();
+        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        if (!npc.getDialogo().isAccessibile(player)) {
+            mostraDialogo(npc.getNome(), npc.parla(player));
+            return;
+        }
+        // L'aver parlato con l'assistente abilita la via "Carisma" del PC della vittima.
+        stato.setFlag(ContentResolver.FLAG_ASSISTENTE);
+        List<String[]> battute = List.of(
+                new String[]{npc.getNome(), NpcCatalog.TECNICO_BATTUTA_1},
+                new String[]{player.getNome(), NpcCatalog.TECNICO_BATTUTA_GIOCATORE_1},
+                new String[]{player.getNome(), NpcCatalog.TECNICO_BATTUTA_GIOCATORE_2},
+                new String[]{npc.getNome(), NpcCatalog.TECNICO_BATTUTA_3});
+        mostraSequenzaDialogo(battute, 0, () -> concludiDialogoTecnico(npc));
+    }
+
+    /**
+     * Mostra in sequenza le battute (nome, testo): premendo E si passa alla
+     * successiva; dopo l'ultima si esegue {@code alTermine}.
+     */
+    private void mostraSequenzaDialogo(List<String[]> battute, int indice, Runnable alTermine) {
+        String[] battuta = battute.get(indice);
+        boolean ultima = indice >= battute.size() - 1;
+        mostraDialogo(battuta[0], battuta[1], () -> {
+            if (ultima) {
+                alTermine.run();
+            } else {
+                mostraSequenzaDialogo(battute, indice + 1, alTermine);
+            }
+        }, List.of());
+    }
+
+    /**
+     * Conclusione del dialogo con il tecnico: registra l'indizio sulla password e,
+     * se è nuovo, lo annuncia in un'ultima battuta; altrimenti chiude.
+     */
+    private void concludiDialogoTecnico(Npc npc) {
+        var indizio = resolver.indizioDi(npc.getId());
+        if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
+            mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo());
+        } else {
+            chiudiOverlay();
+        }
     }
 
     /**

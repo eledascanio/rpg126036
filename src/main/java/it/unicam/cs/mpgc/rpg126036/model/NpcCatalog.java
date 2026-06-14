@@ -39,6 +39,24 @@ public final class NpcCatalog {
         );
     }
 
+    // Scambio a tre battute (tecnico -> giocatore -> tecnico) sbloccato dal Carisma,
+    // mostrato dalla vista come sequenza di dialoghi scorrevoli con E.
+    public static final String TECNICO_BATTUTA_1 =
+            "Che tragedia... Antonio... non posso crederci. Perché è successo proprio a lui? "
+                    + "La polizia mi farà un sacco di domande, sono l'ultimo che ha gestito il laboratorio "
+                    + "oggi... non voglio finire nei guai!";
+    // La battuta del giocatore è divisa in due schermate per stare nel dialog box.
+    public static final String TECNICO_BATTUTA_GIOCATORE_1 =
+            "Ehi, calmati. Mi serve solo la password del PC di Antonio per dare un'occhiata. "
+                    + "Sono il rappresentante degli studenti, mi conoscono tutti qui. La polizia ci metterà "
+                    + "dei giorni a decifrare quel PC e l'assassino nel frattempo scapperà da Camerino.";
+    public static final String TECNICO_BATTUTA_GIOCATORE_2 =
+            "Se troviamo una pista adesso, ripuliamo anche il tuo nome prima che ti interroghino. "
+                    + "Fidati di me, copro io le tue spalle con i docenti.";
+    public static final String TECNICO_BATTUTA_3 =
+            "D'accordo, mi fido di te. In fondo sei il rappresentante, sai come gestire "
+                    + "queste cose con l'amministrazione.";
+
     /**
      * Livello 2: il tecnico di laboratorio. Fornisce la password del PC solo con
      * Carisma &ge; 2, altrimenti resta sotto shock.
@@ -46,22 +64,10 @@ public final class NpcCatalog {
      * @return l'NPC tecnico di laboratorio
      */
     public static Npc tecnicoLaboratorio() {
-        // Scambio a tre battute (tecnico -> giocatore -> tecnico) sbloccato dal Carisma.
-        String dialogoSuccesso =
-                "Tecnico: Che tragedia... Antonio... non posso crederci. Perché è successo proprio a lui? "
-                        + "La polizia mi farà un sacco di domande, sono l'ultimo che ha gestito il laboratorio "
-                        + "oggi... non voglio finire nei guai!\n"
-                        + "Tu: Ehi, calmati. Mi serve solo la password del PC di Antonio per dare un'occhiata. "
-                        + "Sono il rappresentante degli studenti, mi conoscono tutti qui. La polizia ci metterà "
-                        + "dei giorni a decifrare quel PC e l'assassino nel frattempo scapperà da Camerino. Se "
-                        + "troviamo una pista adesso, ripuliamo anche il tuo nome prima che ti interroghino. "
-                        + "Fidati di me, copro io le tue spalle con i docenti.\n"
-                        + "Tecnico: D'accordo, mi fido di te. In fondo sei il rappresentante, sai come gestire "
-                        + "queste cose con l'amministrazione.";
         return new Npc("tecnico_laboratorio", "Tecnico di laboratorio", true,
                 Dialogue.condizionato(
                         new StatRequirement(StatType.CARISMA, 2),
-                        dialogoSuccesso,
+                        TECNICO_BATTUTA_1,
                         "Che tragedia..."));
     }
 

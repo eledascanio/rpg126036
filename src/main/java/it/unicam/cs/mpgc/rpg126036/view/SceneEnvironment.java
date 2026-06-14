@@ -98,7 +98,7 @@ public final class SceneEnvironment {
         ), List.of(
                 // Solo il tecnico usa uno slot: i sei PC hanno posizione fissa sui banchi
                 // e l'uscita (l'email) si apre da sé sbloccando il PC della vittima.
-                new Punto(0.30, 0.62)   // tecnico di laboratorio, davanti ai banchi
+                new Punto(0.13, 0.70)   // tecnico di laboratorio, spalle alla parete di sinistra
         ), 0.50, 0.88));
     }
 
