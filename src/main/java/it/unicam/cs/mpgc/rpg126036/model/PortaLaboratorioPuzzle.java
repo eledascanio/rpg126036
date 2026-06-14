@@ -19,8 +19,8 @@ public class PortaLaboratorioPuzzle implements Puzzle {
     /** Combinazione corretta: l'anno di fondazione di Unicam. */
     public static final String SOLUZIONE = "1336";
 
-    /** Soglia di statistica necessaria a ottenere un indizio. */
-    public static final int SOGLIA_STAT = 2;
+    /** Soglia di statistica necessaria a ottenere un indizio: basta il +1 di classe. */
+    public static final int SOGLIA_STAT = 1;
 
     /** Energia persa tentando combinazioni a caso (forza bruta). */
     public static final int COSTO_FORZA_BRUTA = 40;

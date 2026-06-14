@@ -55,12 +55,15 @@ class PortaLaboratorioPuzzleTest {
     }
 
     @Test
-    void gliIndiziCompaionoSoloSopraLaSogliaDiStatistica() {
+    void ogniStatisticaAllaSogliaSbloccaIlProprioIndizio() {
         PortaLaboratorioPuzzle porta = new PortaLaboratorioPuzzle();
-        Player player = giocatore();
-        assertTrue(porta.suggerimentiPer(player).isEmpty());
+        // Il rappresentante ha Carisma 1 (>= soglia) ma Investigazione e Intuizione a 0:
+        // vede subito un solo indizio, quello del Carisma.
+        Player player = new Player("Eroe", CharacterClass.RAPPRESENTANTE_STUDENTI);
+        assertEquals(1, porta.suggerimentiPer(player).size());
 
-        player.aumentaStatistica(StatType.INVESTIGAZIONE, PortaLaboratorioPuzzle.SOGLIA_STAT);
-        assertFalse(porta.suggerimentiPer(player).isEmpty());
+        // Portando l'Intuizione alla soglia se ne sblocca un secondo.
+        player.aumentaStatistica(StatType.INTUIZIONE, PortaLaboratorioPuzzle.SOGLIA_STAT);
+        assertEquals(2, porta.suggerimentiPer(player).size());
     }
 }

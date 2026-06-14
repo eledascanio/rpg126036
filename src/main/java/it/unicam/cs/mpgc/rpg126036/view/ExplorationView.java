@@ -9,6 +9,8 @@ import it.unicam.cs.mpgc.rpg126036.engine.GameSummary;
 import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
 import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Clue;
+import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
+import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
@@ -30,12 +32,12 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.TextField;
 import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
@@ -114,6 +116,11 @@ public class ExplorationView implements GameListener {
     private double posX = (MAPPA_LARGHEZZA - LATO_PERSONAGGIO) / 2;
     private double posY = (MAPPA_ALTEZZA - LATO_PERSONAGGIO) / 2;
     private ElementoScena elementoVicino;
+    // Porte del cortile (capitolo 1): la porta del Polo A nasconde l'enigma del
+    // laboratorio (si rivela solo a enigma sbloccato), la porta del Polo B resta
+    // sempre inaccessibile. Nulle nelle scene che non le prevedono.
+    private ElementoScena portaPoloA;
+    private ElementoScena portaPoloB;
 
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
@@ -227,6 +234,8 @@ public class ExplorationView implements GameListener {
         elementi.clear();
         muri.clear();
         mappa.getChildren().clear();
+        portaPoloA = null;
+        portaPoloB = null;
 
         Scene scena = engine.getScenaCorrente();
         titoloScena.setText(scena.getTitolo());
@@ -257,7 +266,8 @@ public class ExplorationView implements GameListener {
             resolver.item(idOggetto).ifPresent(item -> aggiungiOggetto(new ItemInteraction(item)));
         }
         for (String idEnigma : contenuti.enigmi()) {
-            resolver.creaEnigma(idEnigma, stato).ifPresent(this::aggiungiEnigma);
+            resolver.creaEnigma(idEnigma, stato)
+                    .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
         }
         for (Transition transizione : engine.transizioniDisponibili()) {
             aggiungiUscita(transizione);
@@ -265,6 +275,9 @@ public class ExplorationView implements GameListener {
 
         disponiElementi(ambiente.orElse(null));
         posizionaPersonaggioIniziale(ambiente.orElse(null));
+        // Le porte del cortile hanno posizione fissa sulle facciate degli edifici:
+        // vanno collocate dopo la disposizione a slot.
+        posizionaPorteCortile();
     }
 
     /**
@@ -361,11 +374,82 @@ public class ExplorationView implements GameListener {
         return vista;
     }
 
-    private void aggiungiEnigma(Puzzle puzzle) {
+    private void aggiungiEnigma(String idEnigma, Puzzle puzzle) {
+        // L'enigma del laboratorio (porta del Polo A) è una porta a comparsa:
+        // visibile e risolvibile solo dopo aver raccolto la chiave e ottenuto
+        // l'indizio su Alex Kaur. Lo affianca la porta — sempre bloccata — del Polo B.
+        if ("porta_laboratorio".equals(idEnigma)) {
+            aggiungiPortaPoloA(puzzle);
+            aggiungiPortaPoloB();
+            return;
+        }
         ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "Enigma", "Esamina l'enigma", Color.web("#9b59b6"));
         e.puzzle = puzzle;
         e.azione = () -> mostraEnigma(puzzle, e);
         registra(e);
+    }
+
+    /**
+     * Crea la porta del laboratorio (Polo A) come elemento-enigma a posizione fissa.
+     * Resta un enigma a tutti gli effetti — blocca la conclusione del capitolo finché
+     * non risolto — e il suo nodo è sempre invisibile (la porta è sullo sfondo): a
+     * cambiare è solo l'interazione. Prima dello sblocco mostra un avviso; dopo aver
+     * raccolto la chiave e ottenuto l'indizio su Alex Kaur apre l'enigma.
+     */
+    private void aggiungiPortaPoloA(Puzzle puzzle) {
+        ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "",
+                "Esamina la porta del Polo A", Color.web("#9b59b6"));
+        e.puzzle = puzzle;
+        e.posizioneFissa = true;
+        e.azione = () -> {
+            if (isEnigmaPortaSbloccato()) {
+                mostraEnigma(puzzle, e);
+            } else {
+                mostraDialogo("", "Non puoi ancora entrare qui.");
+            }
+        };
+        e.setVisibile(false);
+        portaPoloA = e;
+        registra(e);
+    }
+
+    /**
+     * Crea la porta del Polo B: in questo capitolo è sempre inaccessibile, perciò
+     * interagendovi si ottiene solo l'avviso. Non è un enigma e quindi non incide
+     * sulla conclusione del capitolo.
+     */
+    private void aggiungiPortaPoloB() {
+        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
+                "Esamina la porta del Polo B", Color.web("#9b59b6"));
+        e.posizioneFissa = true;
+        e.azione = () -> mostraDialogo("", "Non puoi ancora entrare qui.");
+        e.setVisibile(false);
+        portaPoloB = e;
+        registra(e);
+    }
+
+    /**
+     * @return {@code true} se la porta del laboratorio (Polo A) è sbloccata, ossia
+     *         il giocatore ha raccolto la chiave e ottenuto l'indizio su Alex Kaur
+     */
+    private boolean isEnigmaPortaSbloccato() {
+        Player player = stato.getPlayer();
+        return player.getInventario().contiene(ItemCatalog.ID_CHIAVE_CAPITOLO1)
+                && player.getDiario().contiene(ClueCatalog.ID_ALEX_KAUR);
+    }
+
+    /**
+     * Colloca le porte degli edifici sulle rispettive facciate (Polo A a sinistra,
+     * Polo B a destra), appena davanti all'ingresso e fuori dai muri, così da
+     * restare raggiungibili dal pavimento della piazza.
+     */
+    private void posizionaPorteCortile() {
+        if (portaPoloA != null) {
+            portaPoloA.posiziona(0.20 * MAPPA_LARGHEZZA, 0.60 * MAPPA_ALTEZZA);
+        }
+        if (portaPoloB != null) {
+            portaPoloB.posiziona(0.80 * MAPPA_LARGHEZZA, 0.60 * MAPPA_ALTEZZA);
+        }
     }
 
     private void aggiungiUscita(Transition transizione) {
@@ -401,22 +485,30 @@ public class ExplorationView implements GameListener {
     }
 
     private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
+        // Gli elementi a posizione fissa (le porte degli edifici) sono collocati a
+        // parte: qui si dispongono solo gli altri, su slot o a fasce.
+        List<ElementoScena> daDisporre = new ArrayList<>();
+        for (ElementoScena e : elementi) {
+            if (!e.posizioneFissa) {
+                daDisporre.add(e);
+            }
+        }
         if (ambiente != null && !ambiente.slot().isEmpty()) {
-            disponiSuSlot(ambiente.slot());
+            disponiSuSlot(daDisporre, ambiente.slot());
         } else {
-            disponiAFasce();
+            disponiAFasce(daDisporre);
         }
     }
 
-    private void disponiSuSlot(List<SceneEnvironment.Punto> slot) {
-        for (int i = 0; i < elementi.size(); i++) {
+    private void disponiSuSlot(List<ElementoScena> daDisporre, List<SceneEnvironment.Punto> slot) {
+        for (int i = 0; i < daDisporre.size(); i++) {
             if (i < slot.size()) {
-                elementi.get(i).posiziona(slot.get(i).x() * MAPPA_LARGHEZZA, slot.get(i).y() * MAPPA_ALTEZZA);
+                daDisporre.get(i).posiziona(slot.get(i).x() * MAPPA_LARGHEZZA, slot.get(i).y() * MAPPA_ALTEZZA);
             } else {
                 // Piu' elementi che slot: fallback in basso, distribuiti in larghezza.
                 int extra = i - slot.size();
-                double x = MAPPA_LARGHEZZA * (extra + 1.0) / (elementi.size() - slot.size() + 1);
-                elementi.get(i).posiziona(x, MAPPA_ALTEZZA - 48);
+                double x = MAPPA_LARGHEZZA * (extra + 1.0) / (daDisporre.size() - slot.size() + 1);
+                daDisporre.get(i).posiziona(x, MAPPA_ALTEZZA - 48);
             }
         }
     }
@@ -425,15 +517,16 @@ public class ExplorationView implements GameListener {
      * Dispone gli elementi su tre fasce orizzontali (NPC in alto, oggetti ed enigmi
      * al centro, uscite in basso), distribuendoli uniformemente in larghezza.
      */
-    private void disponiAFasce() {
+    private void disponiAFasce(List<ElementoScena> daDisporre) {
         List<ElementoScena> npc = new ArrayList<>();
         List<ElementoScena> centro = new ArrayList<>();
         List<ElementoScena> uscite = new ArrayList<>();
-        for (ElementoScena e : elementi) {
+        for (ElementoScena e : daDisporre) {
             switch (e.tipo) {
                 case NPC -> npc.add(e);
                 case OGGETTO, ENIGMA -> centro.add(e);
                 case USCITA -> uscite.add(e);
+                case PORTA -> { /* le porte hanno posizione fissa, non a fasce */ }
             }
         }
         disponiFascia(npc, 64);
@@ -742,6 +835,8 @@ public class ExplorationView implements GameListener {
 
         VBox pannello = new VBox(20, etichettaTitolo, etichettaCorpo, chiudi);
         pannello.setAlignment(Pos.CENTER);
+        // Font pixel VT323, come nel resto del gioco (es. messaggio di raccolta chiave).
+        pannello.getStyleClass().add("pixel-font");
         mostraOverlay(velo(pannello), true);
     }
 
@@ -875,37 +970,35 @@ public class ExplorationView implements GameListener {
         }
         Player player = stato.getPlayer();
 
-        Label etichettaTitolo = new Label("Enigma");
+        Label etichettaTitolo = new Label("Tastierino numerico");
         etichettaTitolo.getStyleClass().add("scene-title");
         Label etichettaTesto = new Label(puzzle.getTesto());
         etichettaTesto.getStyleClass().add("overlay-subtitle");
         etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(560);
-
-        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto);
-        pannello.setAlignment(Pos.CENTER);
-
-        for (String suggerimentoEnigma : puzzle.suggerimentiPer(player)) {
-            Label nota = new Label("• " + suggerimentoEnigma);
-            nota.getStyleClass().add("overlay-subtitle");
-            nota.setWrapText(true);
-            nota.setMaxWidth(560);
-            pannello.getChildren().add(nota);
-        }
+        etichettaTesto.setMaxWidth(420);
+        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
 
         Label esito = new Label();
         esito.getStyleClass().add("overlay-subtitle");
         esito.setWrapText(true);
-        esito.setMaxWidth(560);
+        esito.setMaxWidth(420);
+        esito.setTextAlignment(TextAlignment.CENTER);
 
-        TextField tentativo = new TextField();
-        tentativo.setPromptText("La tua risposta");
-        tentativo.setMaxWidth(220);
-
-        Button tenta = new Button("Tenta");
-        tenta.getStyleClass().add("game-button");
-        Button forza = new Button("Forza bruta (perdi energia)");
-        forza.getStyleClass().add("game-button");
+        // Display delle quattro cifre (posizioni vuote come trattini).
+        StringBuilder codice = new StringBuilder();
+        Label display = new Label();
+        display.getStyleClass().add("keypad-display");
+        Runnable aggiornaDisplay = () -> {
+            StringBuilder mostrato = new StringBuilder();
+            for (int i = 0; i < 4; i++) {
+                mostrato.append(i < codice.length() ? codice.charAt(i) : '_');
+                if (i < 3) {
+                    mostrato.append(' ');
+                }
+            }
+            display.setText(mostrato.toString());
+        };
+        aggiornaDisplay.run();
 
         Consumer<PuzzleOutcome> gestisci = outcome -> {
             esito.setText(outcome.messaggio());
@@ -913,11 +1006,98 @@ public class ExplorationView implements GameListener {
                 enigmaRisolto(elemento);
             }
         };
-        tenta.setOnAction(e -> gestisci.accept(puzzle.tenta(player, tentativo.getText())));
+
+        // Tastierino 3x4: cifre 1-9, poi Cancella, 0, Conferma.
+        GridPane tastierino = new GridPane();
+        tastierino.setHgap(8);
+        tastierino.setVgap(8);
+        tastierino.setAlignment(Pos.CENTER);
+        for (int n = 1; n <= 9; n++) {
+            tastierino.add(tastoCifra(String.valueOf(n), codice, aggiornaDisplay), (n - 1) % 3, (n - 1) / 3);
+        }
+        Button cancella = tastoSpeciale("←");
+        cancella.setOnAction(e -> {
+            if (codice.length() > 0) {
+                codice.deleteCharAt(codice.length() - 1);
+                aggiornaDisplay.run();
+            }
+        });
+        Button conferma = tastoSpeciale("OK");
+        conferma.setOnAction(e -> {
+            gestisci.accept(puzzle.tenta(player, codice.toString()));
+            if (!puzzle.isRisolto()) {
+                codice.setLength(0);
+                aggiornaDisplay.run();
+            }
+        });
+        tastierino.add(cancella, 0, 3);
+        tastierino.add(tastoCifra("0", codice, aggiornaDisplay), 1, 3);
+        tastierino.add(conferma, 2, 3);
+
+        Button forza = new Button("Forza bruta (perdi energia)");
+        forza.getStyleClass().add("game-button");
         forza.setOnAction(e -> gestisci.accept(puzzle.forzaBruta(player)));
 
-        pannello.getChildren().addAll(new HBox(8, tentativo, tenta), forza, esito);
-        mostraOverlay(velo(pannello), true);
+        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto, display, tastierino, forza, esito);
+        pannello.setAlignment(Pos.CENTER);
+        pannello.setMaxWidth(480);
+
+        // Pensiero del giocatore in base alla classe: appare come dialog box in basso
+        // e fornisce l'indizio (testo diverso per Investigazione, Intuizione o Carisma).
+        List<String> pensieri = puzzle.suggerimentiPer(player);
+
+        BorderPane contenuto = new BorderPane(pannello);
+        if (!pensieri.isEmpty()) {
+            Node boxPensiero = costruisciBoxPensiero(player.getNome(), String.join("\n\n", pensieri));
+            contenuto.setBottom(boxPensiero);
+            BorderPane.setMargin(boxPensiero, new Insets(0, 16, 16, 16));
+        }
+
+        StackPane velo = new StackPane(contenuto);
+        velo.getStyleClass().addAll("overlay-veil", "pixel-font");
+        mostraOverlay(velo, true);
+    }
+
+    /** Crea un tasto-cifra del tastierino: aggiunge la cifra al codice (max 4). */
+    private Button tastoCifra(String cifra, StringBuilder codice, Runnable aggiornaDisplay) {
+        Button b = tastoSpeciale(cifra);
+        b.setOnAction(e -> {
+            if (codice.length() < 4) {
+                codice.append(cifra);
+                aggiornaDisplay.run();
+            }
+        });
+        return b;
+    }
+
+    /** Crea un tasto quadrato del tastierino con l'etichetta indicata. */
+    private Button tastoSpeciale(String etichetta) {
+        Button b = new Button(etichetta);
+        b.getStyleClass().addAll("game-button", "keypad-key");
+        b.setMinSize(60, 56);
+        return b;
+    }
+
+    /**
+     * Costruisce un dialog box statico (nome + testo) nello stile delle finestre di
+     * dialogo, usato per il pensiero del giocatore durante l'enigma.
+     */
+    private Node costruisciBoxPensiero(String nome, String testo) {
+        Label etichettaNome = new Label(nome);
+        etichettaNome.getStyleClass().add("dialog-name");
+        Label etichettaTesto = new Label(testo);
+        etichettaTesto.getStyleClass().add("dialog-text");
+        etichettaTesto.setWrapText(true);
+        etichettaTesto.setMaxWidth(Double.MAX_VALUE);
+
+        BorderPane box = new BorderPane();
+        box.getStyleClass().addAll("dialog-box", "pixel-font");
+        box.setTop(etichettaNome);
+        box.setCenter(etichettaTesto);
+        BorderPane.setAlignment(etichettaTesto, Pos.TOP_LEFT);
+        BorderPane.setMargin(etichettaTesto, new Insets(6, 0, 0, 0));
+        box.setMaxWidth(Double.MAX_VALUE);
+        return box;
     }
 
     /**
@@ -948,6 +1128,8 @@ public class ExplorationView implements GameListener {
         opzioni.setAlignment(Pos.CENTER);
         VBox pannello = new VBox(20, etichettaTitolo, etichettaSub, opzioni);
         pannello.setAlignment(Pos.CENTER);
+        // Font pixel VT323, come nel resto del gioco (schermata di potenziamento).
+        pannello.getStyleClass().add("pixel-font");
 
         Player player = stato.getPlayer();
         for (StatType tipo : StatType.values()) {
@@ -1160,7 +1342,7 @@ public class ExplorationView implements GameListener {
     // Modello interno di un elemento interattivo sulla mappa
     // ----------------------------------------------------------------------
 
-    private enum TipoElemento {NPC, OGGETTO, ENIGMA, USCITA}
+    private enum TipoElemento {NPC, OGGETTO, ENIGMA, USCITA, PORTA}
 
     /**
      * Una scelta proposta al termine di un dialog box: l'etichetta del pulsante e
@@ -1185,6 +1367,9 @@ public class ExplorationView implements GameListener {
         private double y;
         private Runnable azione;
         private Puzzle puzzle;
+        // Elementi a posizione fissa (le porte degli edifici) sono esclusi dalla
+        // disposizione automatica su slot/fasce e collocati esplicitamente.
+        private boolean posizioneFissa;
 
         /** Elemento a cerchio colorato con il nome sotto (segnaposto generico). */
         ElementoScena(TipoElemento tipo, String nome, String etichettaAzione, Color colore) {
@@ -1223,6 +1408,14 @@ public class ExplorationView implements GameListener {
             if (etichettaNodo != null) {
                 etichettaNodo.setLayoutX(x - etichettaNodo.getPrefWidth() / 2);
                 etichettaNodo.setLayoutY(y + RAGGIO_ELEMENTO + 2);
+            }
+        }
+
+        /** Mostra o nasconde il nodo (e l'eventuale etichetta) dell'elemento. */
+        void setVisibile(boolean visibile) {
+            nodo.setVisible(visibile);
+            if (etichettaNodo != null) {
+                etichettaNodo.setVisible(visibile);
             }
         }
 
