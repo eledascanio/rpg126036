@@ -100,6 +100,17 @@ public final class SceneEnvironment {
                 // e l'uscita (l'email) si apre da sé sbloccando il PC della vittima.
                 new Punto(0.13, 0.70)   // tecnico di laboratorio, spalle alla parete di sinistra
         ), 0.50, 0.88));
+
+        // Aula B (capitolo 3): l'aula al buio. La vista vi sovrappone l'effetto
+        // torcia; gli indizi (luccichii) hanno posizione fissa gestita dalla vista.
+        // La cattedra in fondo è un ostacolo; il giocatore compare alla porta, in
+        // basso al centro.
+        perScena.put("aula_b", new Ambiente("/images/scene/aula_b.jpg", List.of(
+                new Muro(0.00, 0.00, 1.00, 0.17),   // scaffali e server in alto
+                new Muro(0.41, 0.20, 0.18, 0.17),   // cattedra (tavolo) in fondo al centro
+                new Muro(0.08, 0.21, 0.24, 0.47),   // banchi laterali a sinistra
+                new Muro(0.67, 0.21, 0.26, 0.47)    // banchi laterali a destra
+        ), List.of(), 0.50, 0.82));
     }
 
     /**

@@ -28,10 +28,20 @@
         <transizione etichetta="Entra nell'Aula B" destinazione="aula_b"/>
     </scena>
 
-    <!-- Scena finale della campagna: al buio si trovano gli indizi (orologio inciso
-         per Investigazione, tessuto strappato per Intuizione) o si perquisisce l'aula. -->
+    <!-- Aula B esplorabile al buio (effetto torcia): si trovano gli indizi
+         (orologio inciso per Investigazione, tessuto strappato per Intuizione) o si
+         perquisisce l'aula. Non è terminale: trovare un indizio porta all'epilogo,
+         così entrare nella stanza non chiude subito la campagna. La transizione
+         all'epilogo non è un'uscita visibile (la innesca la logica di gioco). -->
     <scena id="aula_b" titolo="Aula B"
            descrizione="Sei dentro l'Aula B, al buio. Da qualche parte ci sono le tracce dell'incontro: un orologio rotto, un lembo di tessuto strappato...">
+        <transizione etichetta="(prosegui)" destinazione="epilogo"/>
+    </scena>
+
+    <!-- Scena terminale della campagna: raggiunta trovando l'indizio nell'Aula B.
+         Il suo completamento conclude la campagna (TO BE CONTINUED / onGameCompleted). -->
+    <scena id="epilogo" titolo="Aula B"
+           descrizione="Hai trovato quello che cercavi. Ora devi solo sparire prima che arrivi la polizia.">
     </scena>
 
 </capitolo>

@@ -25,6 +25,7 @@ import it.unicam.cs.mpgc.rpg126036.persistence.SceneContents;
 import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
 import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -47,7 +48,11 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.RadialGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
@@ -110,6 +115,32 @@ public class ExplorationView implements GameListener {
     private static final int ADDETTO_XP = 80;
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
+    // Aula B al buio: raggio del cono di luce della torcia attorno al giocatore (px).
+    private static final double TORCIA_RAGGIO = 95;
+    // XP per ogni indizio trovato con le scorciatoie (Investigazione/Intuizione)
+    // e per la perquisizione "a tentoni", più l'energia spesa da quest'ultima.
+    private static final int AULA_B_XP_INDIZIO = 80;
+    private static final int AULA_B_XP_PERQUISIZIONE = 30;
+    private static final int COSTO_PERQUISIZIONE = 40;
+    // Pensieri e testi narrativi dell'Aula B.
+    private static final String AULA_B_PENSIERO_LUCCICHIO =
+            "Cos'è quel luccichio in fondo all'aula?";
+    private static final String AULA_B_PENSIERO_CHIAVI =
+            "Aspetta... nel cortile ho trovato le chiavi di casa di Antonio. Se l'assassino le ha "
+                    + "rubate… deve averle prese dalla sua tasca dopo l'aggressione! Se fosse avvenuta "
+                    + "qua dentro allora…";
+    private static final String AULA_B_TESTO_OROLOGIO =
+            "Sulla cattedra in fondo noti qualcosa: è un orologio da polso rotto, con il cinturino "
+                    + "strappato. Sul retro c'è un'incisione con due lettere: «EM». Le stesse della mail.";
+    private static final String AULA_B_TESTO_TESSUTO =
+            "Esamini la porta. Un pezzo di tessuto strappato è rimasto impigliato.";
+    private static final String AULA_B_PENSIERO_TESSUTO =
+            "E se fosse un pezzo della maglia dell'assassino, scappato da qua?";
+    private static final String AULA_B_TESTO_PERQUISIZIONE =
+            "È buio totale e non vedi nulla. Vuoi perquisire l'aula a tentoni, fila per fila?";
+    private static final String AULA_B_TESTO_PERQUISIZIONE_ESITO =
+            "Dopo una lunga e affannosa ricerca, con la polizia ormai in arrivo, trovi comunque un "
+                    + "orologio rotto a terra.";
 
     private final AppContext context;
     private final GameEngine engine;
@@ -149,6 +180,12 @@ public class ExplorationView implements GameListener {
     private boolean pensieroIndagineMostrato;
     // Pensiero mostrato una sola volta appena usciti dal Polo A nel cortile (capitolo 3).
     private boolean pensieroCortileMostrato;
+    // Effetto torcia dell'Aula B (rettangolo nero col foro attorno al giocatore), non
+    // nullo solo mentre si esplora l'Aula B al buio. Aggiornato a ogni frame.
+    private Rectangle torciaCorrente;
+    // Animazioni della scena corrente (es. la pulsazione dei luccichii), fermate alla
+    // ricostruzione della scena per non lasciarle attive a vuoto.
+    private final List<Timeline> animazioniScena = new ArrayList<>();
     // Quando true, la prossima ricostruzione di scena non riposiziona il giocatore al
     // punto di comparsa ma ne conserva la posizione: serve all'avvio del capitolo 3,
     // che riprende l'aula LA1 esattamente come si era concluso il capitolo 2.
@@ -268,6 +305,9 @@ public class ExplorationView implements GameListener {
         mappa.getChildren().clear();
         portaPoloA = null;
         portaPoloB = null;
+        torciaCorrente = null;
+        animazioniScena.forEach(Timeline::stop);
+        animazioniScena.clear();
 
         Scene scena = engine.getScenaCorrente();
         titoloScena.setText(scena.getTitolo());
@@ -302,8 +342,10 @@ public class ExplorationView implements GameListener {
                     .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
         }
         for (Transition transizione : engine.transizioniDisponibili()) {
-            if (isAulaLa1Capitolo2(scena)) {
-                // Capitolo 2: la mail si apre come overlay sbloccando il PC, la sua
+            if (isAulaLa1Capitolo2(scena) || isAulaBCapitolo3(scena)) {
+                // Capitolo 2: la mail si apre come overlay sbloccando il PC. Aula B
+                // (capitolo 3): la transizione all'epilogo è innescata trovando
+                // l'indizio, non da un'uscita visibile. In entrambi i casi la
                 // transizione non diventa un'uscita da raggiungere.
                 continue;
             }
@@ -338,6 +380,10 @@ public class ExplorationView implements GameListener {
         // Le porte del cortile hanno posizione fissa sulle facciate degli edifici:
         // vanno collocate dopo la disposizione a slot.
         posizionaPorteCortile();
+        // L'Aula B aggiunge l'effetto torcia e i luccichii degli indizi sopra il resto.
+        if (isAulaBCapitolo3(scena)) {
+            costruisciAulaB();
+        }
     }
 
     /**
@@ -806,6 +852,15 @@ public class ExplorationView implements GameListener {
     }
 
     /**
+     * @return {@code true} se la scena è l'Aula B del capitolo 3, esplorabile al buio
+     *         con l'effetto torcia e gli indizi da trovare
+     */
+    private boolean isAulaBCapitolo3(Scene scena) {
+        return "aula_b".equals(scena.getId())
+                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
+    }
+
+    /**
      * Aggiunge l'uscita come porta invisibile a posizione fissa: non c'è nulla di
      * visibile sulla mappa, ci si avvicina al punto della porta e con E si segue la
      * transizione. Usata per l'uscita dall'aula LA1 (capitolo 3) verso il cortile.
@@ -863,6 +918,213 @@ public class ExplorationView implements GameListener {
         }
         chiudiOverlay();
         usaUscita(transizione);
+    }
+
+    // ----------------------------------------------------------------------
+    // Aula B: esplorazione al buio (effetto torcia) e ritrovamento degli indizi
+    // ----------------------------------------------------------------------
+
+    /**
+     * Allestisce l'Aula B: sovrappone l'effetto torcia (buio col foro di luce attorno
+     * al giocatore) e, in base alle statistiche, i luccichii degli indizi — l'orologio
+     * in fondo (Investigazione &ge; 2) e il tessuto sulla porta (Intuizione &ge; 2),
+     * che possono coesistere. Senza statistiche adatte resta solo la perquisizione.
+     */
+    private void costruisciAulaB() {
+        aggiungiTorcia();
+        Player player = stato.getPlayer();
+        boolean investigatore = player.getStatistica(StatType.INVESTIGAZIONE) >= 2;
+        boolean intuitivo = player.getStatistica(StatType.INTUIZIONE) >= 2;
+        // I luccichii sono aggiunti sopra la torcia: restano visibili anche al buio.
+        if (investigatore) {
+            // Orologio: sopra la cattedra (tavolo) in fondo al centro.
+            ElementoScena[] rif = new ElementoScena[1];
+            rif[0] = aggiungiLuccichio(0.50, 0.33, "Esamina il luccichio in fondo",
+                    () -> trovaOrologio(rif[0]));
+        }
+        if (intuitivo) {
+            // Tessuto: impigliato nella porta in basso al centro, accanto al giocatore.
+            ElementoScena[] rif = new ElementoScena[1];
+            rif[0] = aggiungiLuccichio(0.50, 0.88, "Esamina la porta",
+                    () -> trovaTessuto(rif[0]));
+        }
+        if (!investigatore && !intuitivo) {
+            // Nessuna scorciatoia: l'unica via è perquisire l'aula a tentoni.
+            aggiungiPerquisizioneAulaB();
+        }
+        aggiornaTorcia();
+    }
+
+    /**
+     * Aggiunge il rettangolo nero della torcia sopra lo scenario e il personaggio:
+     * un foro di luce (gradiente radiale) lo rende trasparente solo attorno al
+     * giocatore, lasciando il resto dell'aula al buio.
+     */
+    private void aggiungiTorcia() {
+        torciaCorrente = new Rectangle(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        torciaCorrente.setMouseTransparent(true);
+        mappa.getChildren().add(torciaCorrente);
+    }
+
+    /** Ricalcola il foro di luce della torcia centrandolo sul giocatore. */
+    private void aggiornaTorcia() {
+        if (torciaCorrente == null) {
+            return;
+        }
+        double cx = posX + LATO_PERSONAGGIO / 2.0;
+        double cy = posY + LATO_PERSONAGGIO / 2.0;
+        RadialGradient luce = new RadialGradient(0, 0, cx, cy, TORCIA_RAGGIO, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.color(0, 0, 0, 0.0)),
+                new Stop(0.55, Color.color(0, 0, 0, 0.0)),
+                new Stop(1.0, Color.color(0, 0, 0, 0.97)));
+        torciaCorrente.setFill(luce);
+    }
+
+    /**
+     * Aggiunge un luccichio (punto d'interesse) all'Aula B: un piccolo cerchio
+     * luminoso e pulsante, a posizione fissa, sopra la torcia così da restare
+     * visibile al buio. Interagendovi si esegue {@code azione}.
+     *
+     * @return l'elemento creato, da rimuovere quando l'indizio è stato raccolto
+     */
+    private ElementoScena aggiungiLuccichio(double fx, double fy, String etichettaAzione, Runnable azione) {
+        Circle luccichio = new Circle(7, Color.web("#fff3b0"));
+        luccichio.setEffect(new Glow(1.0));
+        // Pulsazione luminosa, per attirare lo sguardo nel buio.
+        Timeline pulsazione = new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(luccichio.opacityProperty(), 0.4)),
+                new KeyFrame(Duration.seconds(0.75), new KeyValue(luccichio.opacityProperty(), 1.0)));
+        pulsazione.setAutoReverse(true);
+        pulsazione.setCycleCount(Animation.INDEFINITE);
+        pulsazione.play();
+        animazioniScena.add(pulsazione);
+
+        ElementoScena e = new ElementoScena(TipoElemento.OGGETTO, etichettaAzione, luccichio);
+        e.posizioneFissa = true;
+        e.azione = azione;
+        registra(e);
+        e.posiziona(fx * MAPPA_LARGHEZZA, fy * MAPPA_ALTEZZA);
+        return e;
+    }
+
+    /**
+     * Aggiunge l'azione di perquisizione (per chi non ha scorciatoie): un punto
+     * interattivo invisibile al centro dell'aula da cui avviare la ricerca a tentoni.
+     */
+    private void aggiungiPerquisizioneAulaB() {
+        ElementoScena e = new ElementoScena(TipoElemento.OGGETTO, "", "Perquisisci l'aula",
+                Color.color(0, 0, 0, 0));
+        e.posizioneFissa = true;
+        e.azione = this::mostraPerquisizioneAulaB;
+        e.setVisibile(false);
+        registra(e);
+        e.posiziona(0.50 * MAPPA_LARGHEZZA, 0.55 * MAPPA_ALTEZZA);
+    }
+
+    /**
+     * All'ingresso nell'Aula B, dopo il cartello, fa scattare il pensiero adeguato
+     * alle statistiche: la deduzione sull'Intuizione (chiavi rubate) ha priorità e
+     * scatta anche quando convive con l'Investigazione; con la sola Investigazione si
+     * nota il luccichio in fondo; senza nessuna delle due parte la perquisizione.
+     */
+    private void forseIngressoAulaB() {
+        if (!isAulaBCapitolo3(engine.getScenaCorrente())) {
+            return;
+        }
+        Player player = stato.getPlayer();
+        boolean investigatore = player.getStatistica(StatType.INVESTIGAZIONE) >= 2;
+        boolean intuitivo = player.getStatistica(StatType.INTUIZIONE) >= 2;
+        if (intuitivo) {
+            mostraDialogo(player.getNome(), AULA_B_PENSIERO_CHIAVI);
+        } else if (investigatore) {
+            mostraDialogo(player.getNome(), AULA_B_PENSIERO_LUCCICHIO);
+        } else {
+            mostraPerquisizioneAulaB();
+        }
+    }
+
+    /**
+     * Ritrovamento dell'orologio (via Investigazione, 0 energia): mostra la scoperta,
+     * registra l'indizio, assegna {@value #AULA_B_XP_INDIZIO} XP e toglie il luccichio.
+     */
+    private void trovaOrologio(ElementoScena luccichio) {
+        mostraDialogo("", AULA_B_TESTO_OROLOGIO, () -> {
+            engine.trovaIndizio(ClueCatalog.orologio());
+            stato.getPlayer().aggiungiXp(AULA_B_XP_INDIZIO);
+            aggiornaHud();
+            rimuoviElemento(luccichio);
+            proseguiOFineAulaB();
+        }, List.of());
+    }
+
+    /**
+     * Ritrovamento del tessuto (via Intuizione, 0 energia): la scoperta, poi il
+     * pensiero sull'assassino, infine indizio, {@value #AULA_B_XP_INDIZIO} XP e
+     * rimozione del luccichio.
+     */
+    private void trovaTessuto(ElementoScena luccichio) {
+        mostraDialogo("", AULA_B_TESTO_TESSUTO,
+                () -> mostraDialogo(stato.getPlayer().getNome(), AULA_B_PENSIERO_TESSUTO, () -> {
+                    engine.trovaIndizio(ClueCatalog.tessuto());
+                    stato.getPlayer().aggiungiXp(AULA_B_XP_INDIZIO);
+                    aggiornaHud();
+                    rimuoviElemento(luccichio);
+                    proseguiOFineAulaB();
+                }, List.of()), List.of());
+    }
+
+    /** Chiede se perquisire l'Aula B (via senza scorciatoie). */
+    private void mostraPerquisizioneAulaB() {
+        mostraDialogo("", AULA_B_TESTO_PERQUISIZIONE, this::chiudiOverlay, List.of(
+                new OpzioneDialogo("Perquisisci (-" + COSTO_PERQUISIZIONE + " energia)",
+                        this::eseguiPerquisizioneAulaB),
+                new OpzioneDialogo("Non ora", this::chiudiOverlay)));
+    }
+
+    /**
+     * Perquisizione a tentoni: costa {@value #COSTO_PERQUISIZIONE} di energia; se si
+     * sopravvive si trova comunque l'orologio (indizio) e si ottengono
+     * {@value #AULA_B_XP_PERQUISIZIONE} XP, poi la campagna si conclude.
+     */
+    private void eseguiPerquisizioneAulaB() {
+        stato.getPlayer().riduciEnergia(COSTO_PERQUISIZIONE);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        // Prima il ritrovamento a terra, poi lo stesso identico pensiero della via
+        // Investigazione sull'orologio (incisione "EM", le iniziali della mail).
+        mostraDialogo("", AULA_B_TESTO_PERQUISIZIONE_ESITO,
+                () -> mostraDialogo("", AULA_B_TESTO_OROLOGIO, () -> {
+                    engine.trovaIndizio(ClueCatalog.orologio());
+                    stato.getPlayer().aggiungiXp(AULA_B_XP_PERQUISIZIONE);
+                    aggiornaHud();
+                    chiudiOverlay();
+                    concludiAulaB();
+                }, List.of()), List.of());
+    }
+
+    /**
+     * Dopo aver raccolto un indizio: se restano altri luccichii (caso Investigazione
+     * <i>e</i> Intuizione) si resta nell'aula per trovarli, altrimenti la campagna
+     * si conclude.
+     */
+    private void proseguiOFineAulaB() {
+        chiudiOverlay();
+        boolean restanoLuccichii = elementi.stream()
+                .anyMatch(e -> e.nodo instanceof Circle && e.azione != null);
+        if (!restanoLuccichii) {
+            concludiAulaB();
+        }
+    }
+
+    /**
+     * Conclude la permanenza nell'Aula B avanzando alla scena terminale (epilogo):
+     * il motore segnala la fine della campagna (TO BE CONTINUED).
+     */
+    private void concludiAulaB() {
+        engine.avanza("epilogo");
     }
 
     private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
@@ -964,6 +1226,7 @@ public class ExplorationView implements GameListener {
                 if (dx != 0 || dy != 0) {
                     aggiornaDirezione(dx, dy);
                     aggiornaPosizioneSprite();
+                    aggiornaTorcia();
                 }
                 aggiornaElementoVicino();
             }
@@ -1319,6 +1582,7 @@ public class ExplorationView implements GameListener {
         context.navigator().mostra(new ChapterTitleView(context, titolo, () -> {
             context.navigator().mostra(root);
             forsePensieroCortile();
+            forseIngressoAulaB();
         }).getRoot());
     }
 
@@ -2073,6 +2337,14 @@ public class ExplorationView implements GameListener {
             this.tipo = tipo;
             this.etichettaAzione = etichettaAzione;
             this.nodo = immagine;
+            this.etichettaNodo = null;
+        }
+
+        /** Elemento con un cerchio già configurato (es. il luccichio dell'Aula B), senza nome sotto. */
+        ElementoScena(TipoElemento tipo, String etichettaAzione, Circle cerchio) {
+            this.tipo = tipo;
+            this.etichettaAzione = etichettaAzione;
+            this.nodo = cerchio;
             this.etichettaNodo = null;
         }
 
