@@ -52,6 +52,10 @@ public class GameSessionFactory {
      * @return la sessione di gioco pronta
      */
     public GameSession nuovaPartita(String nomePersonaggio, CharacterClass classe) {
+        // La campagna (e i suoi Chapter) è condivisa e viene riusata a ogni partita:
+        // azzera il progresso ereditato da una run precedente, così la nuova partita
+        // riparte davvero dalla prima scena di ogni capitolo.
+        campaign.getCapitoli().forEach(Chapter::reset);
         Player player = new Player(nomePersonaggio, classe);
         return assembla(new GameState(player), campaign.getCapitoli(), 0);
     }

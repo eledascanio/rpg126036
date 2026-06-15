@@ -69,6 +69,14 @@ public class Scene {
         return completata;
     }
 
+    /**
+     * Azzera il progresso della scena (torna non completata), per ricominciare da
+     * capo una nuova partita riusando lo stesso grafo.
+     */
+    public void reset() {
+        this.completata = false;
+    }
+
     public String getId() {
         return id;
     }

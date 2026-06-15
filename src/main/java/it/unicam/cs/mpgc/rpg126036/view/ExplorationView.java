@@ -102,6 +102,14 @@ public class ExplorationView implements GameListener {
     private static final double CORTILE_PORTA_A_X = 0.20;
     private static final double CORTILE_PORTA_B_X = 0.80;
     private static final double CORTILE_PORTE_Y = 0.60;
+    // Posizione dell'addetto alle pulizie nel cortile (capitolo 3): davanti al Polo B,
+    // di lato rispetto alla porta e un po' arretrato verso la facciata.
+    private static final double POLO_B_NPC_X = 0.73;
+    private static final double POLO_B_NPC_Y = 0.58;
+    // XP guadagnati convincendo l'addetto ad aprire la porta dell'Aula B.
+    private static final int ADDETTO_XP = 80;
+    // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
+    private static final int COSTO_FORZA_PORTA_AULA_B = 30;
 
     private final AppContext context;
     private final GameEngine engine;
@@ -139,6 +147,8 @@ public class ExplorationView implements GameListener {
     // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
     // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
     private boolean pensieroIndagineMostrato;
+    // Pensiero mostrato una sola volta appena usciti dal Polo A nel cortile (capitolo 3).
+    private boolean pensieroCortileMostrato;
     // Quando true, la prossima ricostruzione di scena non riposiziona il giocatore al
     // punto di comparsa ma ne conserva la posizione: serve all'avvio del capitolo 3,
     // che riprende l'aula LA1 esattamente come si era concluso il capitolo 2.
@@ -303,11 +313,14 @@ public class ExplorationView implements GameListener {
                 aggiungiPortaUscita(transizione, 0.855, 0.84);
             } else if (isCortileCapitolo3(scena)) {
                 // Capitolo 3: anche le uscite del cortile sono porte invisibili sulle
-                // facciate: il Polo A (rientro in aula LA1) a sinistra, il Polo B
-                // (Aula B) a destra. Da fuori non si vede nulla.
-                double fx = "aula_la1".equals(transizione.idDestinazione())
-                        ? CORTILE_PORTA_A_X : CORTILE_PORTA_B_X;
-                aggiungiPortaUscita(transizione, fx, CORTILE_PORTE_Y);
+                // facciate. Il Polo A (rientro in aula LA1) a sinistra è un'uscita
+                // diretta; il Polo B (Aula B) a destra è invece sbarrato: si apre solo
+                // se l'addetto ha aiutato, altrimenti va forzato.
+                if ("aula_la1".equals(transizione.idDestinazione())) {
+                    aggiungiPortaUscita(transizione, CORTILE_PORTA_A_X, CORTILE_PORTE_Y);
+                } else {
+                    aggiungiPortaPoloB(transizione);
+                }
             } else {
                 aggiungiUscita(transizione);
             }
@@ -392,10 +405,18 @@ public class ExplorationView implements GameListener {
             e.azione = () -> interagisciConStudenteUbriaco(npc);
         } else if ("tecnico_laboratorio".equals(id)) {
             e.azione = () -> interagisciConTecnico(npc);
+        } else if ("addetto_pulizie".equals(id)) {
+            e.azione = () -> interagisciConAddetto(npc);
         } else {
             e.azione = () -> interagisciConNpc(npc);
         }
         registra(e);
+        // L'addetto alle pulizie del cortile (capitolo 3) ha posizione fissa accanto
+        // al Polo B, fuori dalla disposizione automatica a slot.
+        if ("addetto_pulizie".equals(id)) {
+            e.posizioneFissa = true;
+            e.posiziona(POLO_B_NPC_X * MAPPA_LARGHEZZA, POLO_B_NPC_Y * MAPPA_ALTEZZA);
+        }
     }
 
     private void aggiungiOggetto(ItemInteraction oggetto) {
@@ -525,7 +546,7 @@ public class ExplorationView implements GameListener {
         cerca.setMaxWidth(380);
         cerca.setOnAction(e -> cercaIndiziPc(elemento));
 
-        pannello.getChildren().addAll(analizza, cerca, bottoneForzaBrutaPc(elemento));
+        pannello.getChildren().addAll(analizza, cerca, bottoneForzaBrutaPc(elemento), bottoneAnnullaPc());
         mostraOverlay(velo(pannello), true);
     }
 
@@ -559,7 +580,7 @@ public class ExplorationView implements GameListener {
             return false;
         });
 
-        pannello.getChildren().addAll(tastierino, bottoneForzaBrutaPc(elemento), esito);
+        pannello.getChildren().addAll(tastierino, bottoneForzaBrutaPc(elemento), bottoneAnnullaPc(), esito);
         mostraOverlay(velo(pannello), true);
     }
 
@@ -578,7 +599,7 @@ public class ExplorationView implements GameListener {
      */
     private void mostraForzaBrutaPc(ElementoScena elemento) {
         VBox pannello = pannelloPc("Il terminale è protetto da una password che non conosci.");
-        pannello.getChildren().add(bottoneForzaBrutaPc(elemento));
+        pannello.getChildren().addAll(bottoneForzaBrutaPc(elemento), bottoneAnnullaPc());
         mostraOverlay(velo(pannello), true);
     }
 
@@ -601,6 +622,19 @@ public class ExplorationView implements GameListener {
         pannello.setMaxWidth(480);
         pannello.getStyleClass().add("pixel-font");
         return pannello;
+    }
+
+    /**
+     * Pulsante "Annulla" del PC: chiude il terminale senza alcun costo, così il
+     * giocatore può tornare indietro (ad esempio per parlare prima col tecnico) invece
+     * di essere costretto alla forza bruta.
+     */
+    private Button bottoneAnnullaPc() {
+        Button annulla = new Button("Annulla");
+        annulla.getStyleClass().add("game-button");
+        annulla.setMaxWidth(380);
+        annulla.setOnAction(e -> chiudiOverlay());
+        return annulla;
     }
 
     /** Pulsante "Forza bruta" del PC: penalità di energia, poi sblocco e mail. */
@@ -788,6 +822,47 @@ public class ExplorationView implements GameListener {
         e.setVisibile(false);
         registra(e);
         e.posiziona(fx * MAPPA_LARGHEZZA, fy * MAPPA_ALTEZZA);
+    }
+
+    /**
+     * Porta del Polo B nel cortile (capitolo 3): invisibile e a posizione fissa sulla
+     * facciata. È sbarrata: si attraversa liberamente solo se l'addetto alle pulizie
+     * ha aperto la porta laterale; altrimenti propone di forzarla a costo di energia.
+     */
+    private void aggiungiPortaPoloB(Transition transizione) {
+        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
+                transizione.etichetta(), Color.web("#2ecc71"));
+        e.posizioneFissa = true;
+        e.azione = () -> interagisciPortaPoloB(transizione);
+        e.setVisibile(false);
+        registra(e);
+        e.posiziona(CORTILE_PORTA_B_X * MAPPA_LARGHEZZA, CORTILE_PORTE_Y * MAPPA_ALTEZZA);
+    }
+
+    /**
+     * Interazione con la porta del Polo B: se l'addetto l'ha già aperta si entra
+     * direttamente, altrimenti la porta risulta bloccata e si può scegliere di forzarla.
+     */
+    private void interagisciPortaPoloB(Transition transizione) {
+        if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
+            usaUscita(transizione);
+            return;
+        }
+        mostraDialogo("", "La porta dell'aula risulta bloccata. Vuoi forzare la porta?",
+                this::chiudiOverlay, List.of(
+                        new OpzioneDialogo("Forza la porta", () -> forzaPortaPoloB(transizione)),
+                        new OpzioneDialogo("Lascia stare", this::chiudiOverlay)));
+    }
+
+    /** Forza la porta del Polo B: penalità di energia, poi (se si sopravvive) si entra. */
+    private void forzaPortaPoloB(Transition transizione) {
+        stato.getPlayer().riduciEnergia(COSTO_FORZA_PORTA_AULA_B);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        chiudiOverlay();
+        usaUscita(transizione);
     }
 
     private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
@@ -1099,6 +1174,53 @@ public class ExplorationView implements GameListener {
     }
 
     /**
+     * Interazione su misura con l'addetto alle pulizie nel cortile (capitolo 3).
+     * L'addetto respinge tutti; con Carisma &ge; 2 il giocatore lo convince in una
+     * sequenza di battute (rifiuto, replica, accettazione): l'addetto apre la porta
+     * laterale dell'Aula B, assegna {@value #ADDETTO_XP} XP e rivela l'indizio. Sotto
+     * soglia il rifiuto costa {@link #COSTO_ENERGIA_DIALOGO} di energia. Una volta
+     * aperta la porta, ulteriori interazioni si limitano a sollecitare il giocatore.
+     */
+    private void interagisciConAddetto(Npc npc) {
+        if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
+            mostraDialogo(npc.getNome(), "Sbrigati, ti ho già aperto la porta laterale.");
+            return;
+        }
+        Player player = stato.getPlayer();
+        if (npc.getDialogo().isAccessibile(player)) {
+            List<String[]> battute = List.of(
+                    new String[]{npc.getNome(), NpcCatalog.ADDETTO_RIFIUTO},
+                    new String[]{player.getNome(), NpcCatalog.ADDETTO_GIOCATORE},
+                    new String[]{npc.getNome(), NpcCatalog.ADDETTO_ACCETTA});
+            mostraSequenzaDialogo(battute, 0, () -> concludiDialogoAddetto(npc));
+            return;
+        }
+        // Carisma insufficiente: rifiuto secco, a costo di energia.
+        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
+        aggiornaHud();
+        if (engine.verificaGameOver()) {
+            return;
+        }
+        mostraDialogo(npc.getNome(), NpcCatalog.ADDETTO_RIFIUTO);
+    }
+
+    /**
+     * Conclusione del dialogo riuscito con l'addetto: sblocca la porta dell'Aula B,
+     * assegna gli XP e registra (annunciandolo) l'indizio sullo studente in fuga.
+     */
+    private void concludiDialogoAddetto(Npc npc) {
+        stato.setFlag(ContentResolver.FLAG_PORTA_AULA_B);
+        stato.getPlayer().aggiungiXp(ADDETTO_XP);
+        aggiornaHud();
+        var indizio = resolver.indizioDi(npc.getId());
+        if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
+            mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo());
+        } else {
+            chiudiOverlay();
+        }
+    }
+
+    /**
      * Interazione su misura con lo studente ubriaco. Come ogni dialogo costa
      * {@link #COSTO_ENERGIA_DIALOGO} di energia; se il giocatore ha Carisma &gt; 0
      * (ha scelto il rappresentante) l'NPC lo riconosce e gli offre un sorso,
@@ -1194,8 +1316,22 @@ public class ExplorationView implements GameListener {
             return;
         }
         String titolo = engine.getScenaCorrente().getTitolo();
-        context.navigator().mostra(new ChapterTitleView(context, titolo,
-                () -> context.navigator().mostra(root)).getRoot());
+        context.navigator().mostra(new ChapterTitleView(context, titolo, () -> {
+            context.navigator().mostra(root);
+            forsePensieroCortile();
+        }).getRoot());
+    }
+
+    /**
+     * Mostra una sola volta, appena usciti dal Polo A nel cortile (capitolo 3), il
+     * pensiero che sprona il giocatore a sbrigarsi.
+     */
+    private void forsePensieroCortile() {
+        if (!pensieroCortileMostrato && isCortileCapitolo3(engine.getScenaCorrente())) {
+            pensieroCortileMostrato = true;
+            mostraDialogo(stato.getPlayer().getNome(),
+                    "Stanno tutti scappando, devo muovermi prima che sia tardi.");
+        }
     }
 
     private boolean haEnigmaNonRisolto() {

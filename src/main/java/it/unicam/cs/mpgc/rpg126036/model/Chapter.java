@@ -116,6 +116,17 @@ public class Chapter {
         return idScenaCorrente != null && getScenaCorrente().isTerminale();
     }
 
+    /**
+     * Riporta il capitolo allo stato iniziale: la scena corrente torna a essere
+     * quella iniziale e tutte le scene vengono segnate come non completate. Serve a
+     * iniziare una nuova partita riusando lo stesso grafo di capitoli, senza ereditare
+     * il progresso della partita precedente.
+     */
+    public void reset() {
+        idScenaCorrente = idScenaIniziale;
+        scene.values().forEach(Scene::reset);
+    }
+
     public String getId() {
         return id;
     }

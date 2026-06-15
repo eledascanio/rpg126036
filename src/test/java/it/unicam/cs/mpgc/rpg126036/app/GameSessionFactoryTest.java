@@ -41,6 +41,22 @@ class GameSessionFactoryTest {
     }
 
     @Test
+    void nuovaPartitaAzzeraIlProgressoDiUnaPartitaPrecedente(@TempDir Path cartella) {
+        GameSessionFactory factory = factory(cartella);
+        // Prima partita: avanza nel grafo completando una scena del capitolo 2,
+        // mutando i Chapter condivisi della campagna.
+        GameSession prima = factory.nuovaPartita("Uno", CharacterClass.STUDENTE_MODELLO);
+        prima.getCampaign().getCapitoli().get(1).vaiA("email_vittima");
+
+        // La seconda partita deve ripartire da capo, non ereditare il progresso:
+        // il capitolo 2 torna alla sua scena iniziale e non risulta completato.
+        GameSession seconda = factory.nuovaPartita("Due", CharacterClass.STUDENTE_MODELLO);
+        Chapter cap2 = seconda.getCampaign().getCapitoli().get(1);
+        assertEquals("aula_la1", cap2.getScenaCorrente().getId());
+        assertFalse(cap2.isCompletato());
+    }
+
+    @Test
     void ilGestoreDeiTraguardiERegistratoSulMotore(@TempDir Path cartella) {
         GameSession sessione = factory(cartella)
                 .nuovaPartita("Detective", CharacterClass.STUDENTE_MODELLO);

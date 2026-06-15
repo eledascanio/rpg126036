@@ -34,6 +34,9 @@ public class ContentResolver {
     /** Flag di progresso che segnala il dialogo avvenuto con l'assistente di laboratorio. */
     public static final String FLAG_ASSISTENTE = "ha_parlato_con_assistente";
 
+    /** Flag di progresso: l'addetto alle pulizie ha aperto la porta laterale dell'Aula B. */
+    public static final String FLAG_PORTA_AULA_B = "addetto_ha_aperto_aula_b";
+
     private final Map<String, Npc> npcPerId = new LinkedHashMap<>();
     private final Map<String, Item> itemPerId = new LinkedHashMap<>();
     private final Map<String, Clue> indiziPerId = new LinkedHashMap<>();

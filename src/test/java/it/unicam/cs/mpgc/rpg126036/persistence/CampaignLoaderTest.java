@@ -29,7 +29,7 @@ class CampaignLoaderTest {
         Campaign campagna = loader.caricaStandard();
 
         assertTrue(campagna.contenutiDi("capitolo2", "aula_la1").enigmi().contains("pc_vittima"));
-        assertTrue(campagna.contenutiDi("capitolo3", "ingresso_aula_b").npc().contains("addetto_pulizie"));
+        assertTrue(campagna.contenutiDi("capitolo3", "cortile").npc().contains("addetto_pulizie"));
     }
 
     @Test

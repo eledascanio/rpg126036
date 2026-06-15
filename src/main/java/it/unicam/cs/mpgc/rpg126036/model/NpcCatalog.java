@@ -71,18 +71,36 @@ public final class NpcCatalog {
                         "Che tragedia..."));
     }
 
+    // Scambio con l'addetto alle pulizie nel cortile (capitolo 3). All'inizio
+    // respinge tutti; con Carisma >= 2 il giocatore lo convince e l'addetto apre la
+    // porta laterale dell'Aula B, rivelando anche dove è scappato lo studente.
+    public static final String ADDETTO_RIFIUTO =
+            "Levati da qui, non hai saputo cos'è successo? Non è posto per dei ragazzini "
+                    + "che vogliono fare i guardoni.";
+    public static final String ADDETTO_GIOCATORE =
+            "Mi scusi... la prego, un secondo. So benissimo cosa è successo fuori. La vittima "
+                    + "è Antonio, uno dei miei più cari amici. La polizia bloccherà tutto e temo "
+                    + "che le prove andranno perse. Mi lasci solo dare un'occhiata veloce all'Aula B, "
+                    + "per favore... lo devo ad Antonio.";
+    public static final String ADDETTO_ACCETTA =
+            "Accidenti... era un tuo amico? Che tragedia, quel povero ragazzo... Va bene, senti, "
+                    + "facciamo in fretta. Ti apro la porta laterale. Tra l'altro, poco fa ho visto "
+                    + "uscire di corsa uno studente sconvolto, piangeva... andava verso le scale che "
+                    + "portano al Polo di Matematica.";
+
     /**
-     * Livello 3: l'addetto alle pulizie. Aiuta a entrare e fornisce l'indizio sul
-     * percorso dello studente solo con Carisma &ge; 3, altrimenti respinge il giocatore.
+     * Capitolo 3: l'addetto alle pulizie, fermo nel cortile accanto al Polo B. Con
+     * Carisma &ge; 2 si lascia convincere ad aprire la porta laterale dell'Aula B e
+     * fornisce l'indizio sul percorso dello studente; altrimenti respinge il giocatore.
+     * Lo scambio su misura (battute scorrevoli, XP, sblocco porta) è gestito dalla vista.
      *
      * @return l'NPC addetto alle pulizie
      */
     public static Npc addettoPulizie() {
         return new Npc("addetto_pulizie", "Addetto alle pulizie", true,
                 Dialogue.condizionato(
-                        new StatRequirement(StatType.CARISMA, 3),
-                        "Poco fa ho visto uscire di corsa uno studente sconvolto, piangeva... "
-                                + "andava verso le scale che portano al Polo di Matematica",
-                        "Levati da qui, non è posto per dei ragazzini"));
+                        new StatRequirement(StatType.CARISMA, 2),
+                        ADDETTO_ACCETTA,
+                        ADDETTO_RIFIUTO));
     }
 }
