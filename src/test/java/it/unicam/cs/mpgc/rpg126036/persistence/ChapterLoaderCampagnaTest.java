@@ -55,7 +55,8 @@ class ChapterLoaderCampagnaTest {
         Chapter capitolo = def.capitolo();
 
         assertEquals("capitolo3", capitolo.getId());
-        assertEquals("cortile", capitolo.getIdScenaIniziale().orElseThrow());
+        // Il capitolo riprende nell'aula LA1, da cui si esce nel cortile.
+        assertEquals("aula_la1", capitolo.getIdScenaIniziale().orElseThrow());
         // L'addetto alle pulizie e' all'ingresso dell'Aula B.
         assertTrue(def.contenutiDi("ingresso_aula_b").npc().contains("addetto_pulizie"));
         // L'Aula B e' la scena finale della campagna (terminale).
@@ -63,9 +64,25 @@ class ChapterLoaderCampagnaTest {
     }
 
     @Test
+    void ilCapitolo3CollegaAulaLa1ECortile() {
+        Chapter cap3 = carica("/capitoli/capitolo3.xml").capitolo();
+
+        // Dall'aula LA1 si esce nel cortile; dal cortile si rientra e si va all'Aula B.
+        assertTrue(haTransizioneVerso(cap3, "aula_la1", "cortile"));
+        assertTrue(haTransizioneVerso(cap3, "cortile", "aula_la1"));
+        assertTrue(haTransizioneVerso(cap3, "cortile", "ingresso_aula_b"));
+    }
+
+    private boolean haTransizioneVerso(Chapter capitolo, String idScena, String idDestinazione) {
+        return capitolo.getScena(idScena).orElseThrow().getTransizioni().stream()
+                .anyMatch(t -> t.idDestinazione().equals(idDestinazione));
+    }
+
+    @Test
     void leSceneIntermedieNonSonoTerminali() {
         Chapter cap3 = carica("/capitoli/capitolo3.xml").capitolo();
 
+        assertFalse(cap3.getScena("aula_la1").orElseThrow().isTerminale());
         assertFalse(cap3.getScena("cortile").orElseThrow().isTerminale());
         assertFalse(cap3.getScena("ingresso_aula_b").orElseThrow().isTerminale());
     }

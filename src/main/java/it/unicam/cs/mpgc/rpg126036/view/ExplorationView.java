@@ -97,6 +97,11 @@ public class ExplorationView implements GameListener {
     // Numero binario da convertire (enigma del PC, via Investigazione) e sua soluzione.
     private static final String PC_BINARIO = "11010";
     private static final String PC_SOLUZIONE = "26";
+    // Posizioni delle porte degli edifici sul cortile (frazioni della mappa): Polo A
+    // a sinistra, Polo B a destra, alla stessa altezza sulle facciate.
+    private static final double CORTILE_PORTA_A_X = 0.20;
+    private static final double CORTILE_PORTA_B_X = 0.80;
+    private static final double CORTILE_PORTE_Y = 0.60;
 
     private final AppContext context;
     private final GameEngine engine;
@@ -134,6 +139,10 @@ public class ExplorationView implements GameListener {
     // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
     // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
     private boolean pensieroIndagineMostrato;
+    // Quando true, la prossima ricostruzione di scena non riposiziona il giocatore al
+    // punto di comparsa ma ne conserva la posizione: serve all'avvio del capitolo 3,
+    // che riprende l'aula LA1 esattamente come si era concluso il capitolo 2.
+    private boolean preservaPosizione;
 
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
@@ -283,15 +292,36 @@ public class ExplorationView implements GameListener {
                     .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
         }
         for (Transition transizione : engine.transizioniDisponibili()) {
-            // Nell'aula LA1 la mail è mostrata come overlay sbloccando il PC: la sua
-            // transizione non diventa un'uscita da raggiungere.
-            if (!"aula_la1".equals(scena.getId())) {
+            if (isAulaLa1Capitolo2(scena)) {
+                // Capitolo 2: la mail si apre come overlay sbloccando il PC, la sua
+                // transizione non diventa un'uscita da raggiungere.
+                continue;
+            }
+            if (isAulaLa1Capitolo3(scena)) {
+                // Capitolo 3: l'uscita non è un elemento visibile ma la porta in
+                // basso a destra, a cui avvicinarsi per tornare nel cortile.
+                aggiungiPortaUscita(transizione, 0.855, 0.84);
+            } else if (isCortileCapitolo3(scena)) {
+                // Capitolo 3: anche le uscite del cortile sono porte invisibili sulle
+                // facciate: il Polo A (rientro in aula LA1) a sinistra, il Polo B
+                // (Aula B) a destra. Da fuori non si vede nulla.
+                double fx = "aula_la1".equals(transizione.idDestinazione())
+                        ? CORTILE_PORTA_A_X : CORTILE_PORTA_B_X;
+                aggiungiPortaUscita(transizione, fx, CORTILE_PORTE_Y);
+            } else {
                 aggiungiUscita(transizione);
             }
         }
 
         disponiElementi(ambiente.orElse(null));
-        posizionaPersonaggioIniziale(ambiente.orElse(null));
+        // All'avvio del capitolo 3 il giocatore resta dov'era a fine capitolo 2
+        // (davanti al PC); negli altri casi compare al punto di spawn della scena.
+        if (preservaPosizione) {
+            preservaPosizione = false;
+            aggiornaPosizioneSprite();
+        } else {
+            posizionaPersonaggioIniziale(ambiente.orElse(null));
+        }
         // Le porte del cortile hanno posizione fissa sulle facciate degli edifici:
         // vanno collocate dopo la disposizione a slot.
         posizionaPorteCortile();
@@ -321,7 +351,11 @@ public class ExplorationView implements GameListener {
     }
 
     private void posizionaPersonaggioIniziale(SceneEnvironment.Ambiente ambiente) {
-        if (ambiente != null) {
+        if (isCortileCapitolo3(engine.getScenaCorrente())) {
+            // Si esce dal Polo A: il giocatore compare davanti alla sua porta.
+            posX = CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
+            posY = (CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
+        } else if (ambiente != null) {
             posX = ambiente.spawnX() * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
             posY = ambiente.spawnY() * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
         } else {
@@ -670,10 +704,10 @@ public class ExplorationView implements GameListener {
      */
     private void posizionaPorteCortile() {
         if (portaPoloA != null) {
-            portaPoloA.posiziona(0.20 * MAPPA_LARGHEZZA, 0.60 * MAPPA_ALTEZZA);
+            portaPoloA.posiziona(CORTILE_PORTA_A_X * MAPPA_LARGHEZZA, CORTILE_PORTE_Y * MAPPA_ALTEZZA);
         }
         if (portaPoloB != null) {
-            portaPoloB.posiziona(0.80 * MAPPA_LARGHEZZA, 0.60 * MAPPA_ALTEZZA);
+            portaPoloB.posiziona(CORTILE_PORTA_B_X * MAPPA_LARGHEZZA, CORTILE_PORTE_Y * MAPPA_ALTEZZA);
         }
     }
 
@@ -707,6 +741,53 @@ public class ExplorationView implements GameListener {
                 && contenuti.oggetti().isEmpty()
                 && contenuti.enigmi().isEmpty()
                 && !engine.isPartitaTerminata();
+    }
+
+    /**
+     * @return {@code true} se la scena è l'aula LA1 del capitolo 2, dove l'email
+     *         si apre come overlay sbloccando il PC e la sua transizione non va
+     *         resa come uscita (a differenza dell'aula LA1 del capitolo 3)
+     */
+    private boolean isAulaLa1Capitolo2(Scene scena) {
+        return "aula_la1".equals(scena.getId())
+                && "capitolo2".equals(engine.getCapitoloCorrente().getId());
+    }
+
+    /**
+     * @return {@code true} se la scena è l'aula LA1 del capitolo 3, dove l'uscita
+     *         verso il cortile è una porta invisibile in basso a destra
+     */
+    private boolean isAulaLa1Capitolo3(Scene scena) {
+        return "aula_la1".equals(scena.getId())
+                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
+    }
+
+    /**
+     * @return {@code true} se la scena è il cortile del capitolo 3, dove le uscite
+     *         verso il Polo A e il Polo B sono porte invisibili sulle facciate
+     */
+    private boolean isCortileCapitolo3(Scene scena) {
+        return "cortile".equals(scena.getId())
+                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
+    }
+
+    /**
+     * Aggiunge l'uscita come porta invisibile a posizione fissa: non c'è nulla di
+     * visibile sulla mappa, ci si avvicina al punto della porta e con E si segue la
+     * transizione. Usata per l'uscita dall'aula LA1 (capitolo 3) verso il cortile.
+     *
+     * @param transizione la transizione da seguire interagendo con la porta
+     * @param fx          ascissa della porta in frazione della larghezza (0..1)
+     * @param fy          ordinata della porta in frazione dell'altezza (0..1)
+     */
+    private void aggiungiPortaUscita(Transition transizione, double fx, double fy) {
+        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
+                transizione.etichetta(), Color.web("#2ecc71"));
+        e.posizioneFissa = true;
+        e.azione = () -> usaUscita(transizione);
+        e.setVisibile(false);
+        registra(e);
+        e.posiziona(fx * MAPPA_LARGHEZZA, fy * MAPPA_ALTEZZA);
     }
 
     private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
@@ -1097,6 +1178,24 @@ public class ExplorationView implements GameListener {
             return;
         }
         engine.avanza(transizione.idDestinazione());
+        // Dopo lo spostamento ripresenta il cartello con il titolo della nuova scena,
+        // come a inizio capitolo (es. "Cortile del Polo di Informatica", "Aula LA1").
+        mostraCartelloScenaCorrente();
+    }
+
+    /**
+     * Mostra il cartello (schermata nera con la scritta) del titolo della scena
+     * corrente e poi torna all'esplorazione. Si applica solo alle scene esplorabili:
+     * le scene narrative/terminali e la fine partita hanno già il proprio overlay,
+     * perciò in quel caso il cartello viene saltato.
+     */
+    private void mostraCartelloScenaCorrente() {
+        if (engine.isPartitaTerminata() || overlayCorrente != null) {
+            return;
+        }
+        String titolo = engine.getScenaCorrente().getTitolo();
+        context.navigator().mostra(new ChapterTitleView(context, titolo,
+                () -> context.navigator().mostra(root)).getRoot());
     }
 
     private boolean haEnigmaNonRisolto() {
@@ -1232,21 +1331,17 @@ public class ExplorationView implements GameListener {
     }
 
     /**
-     * Fine del capitolo 2: schermata di potenziamento statistica (come a fine
-     * capitolo 1), poi il cartello "Capitolo 3". Il personaggio non viene spostato:
-     * al termine del cartello si torna all'aula nella posizione corrente.
+     * Fine del capitolo 2: completa formalmente il capitolo spostando il motore
+     * sulla scena terminale dell'email (la transizione era stata mostrata come
+     * overlay), poi propone la scelta del potenziamento. Confermandola, il motore
+     * avanza al capitolo 3 con la consueta sequenza di cartelli e il pensiero che
+     * indirizza il giocatore verso il Polo B.
      */
     private void concludiCapitoloDue() {
+        engine.avanza("email_vittima");
         mostraSceltaUpgrade("Capitolo completato",
                 "Scegli una statistica da potenziare prima del prossimo capitolo:",
-                statistica -> {
-                    Player player = stato.getPlayer();
-                    player.ripristinaEnergia(Player.ENERGIA_MASSIMA);
-                    player.aumentaStatistica(statistica, 1);
-                    aggiornaHud();
-                    context.navigator().mostra(new ChapterTitleView(context, "Capitolo 3",
-                            () -> context.navigator().mostra(root)).getRoot());
-                });
+                engine::concludiCapitolo);
     }
 
     /**
@@ -1658,13 +1753,35 @@ public class ExplorationView implements GameListener {
     @Override
     public void onChapterAdvanced(Chapter nuovo) {
         // Dal titolo "Capitolo N: ..." si estrae la sola dicitura "Capitolo N".
+        // Il capitolo 3 riprende l'aula LA1 dov'era finito il capitolo 2: la
+        // ricostruzione di scena (notificata subito dopo) non deve riposizionare il
+        // giocatore al punto di spawn ma conservarne la posizione davanti al PC.
+        if ("capitolo3".equals(nuovo.getId())) {
+            preservaPosizione = true;
+        }
         String etichettaCapitolo = nuovo.getTitolo().split(":", 2)[0].trim();
         String titoloScena = engine.getScenaCorrente().getTitolo();
-        Runnable vaiAllEsplorazione = () -> context.navigator().mostra(root);
+        Runnable vaiAllEsplorazione = () -> {
+            context.navigator().mostra(root);
+            mostraPensieroInizioCapitolo(nuovo);
+        };
         Runnable vaiAllaScena = () -> context.navigator().mostra(
                 new ChapterTitleView(context, titoloScena, vaiAllEsplorazione).getRoot());
         context.navigator().mostra(
                 new ChapterTitleView(context, etichettaCapitolo, vaiAllaScena).getRoot());
+    }
+
+    /**
+     * All'inizio di alcuni capitoli il personaggio esprime un pensiero che ne
+     * inquadra l'obiettivo. Nel capitolo 3 lo spinge a investigare al Polo B.
+     *
+     * @param nuovo il capitolo appena iniziato
+     */
+    private void mostraPensieroInizioCapitolo(Chapter nuovo) {
+        if ("capitolo3".equals(nuovo.getId())) {
+            mostraDialogo(stato.getPlayer().getNome(),
+                    "Devo assolutamente andare a investigare al polo B prima che sia troppo tardi.");
+        }
     }
 
     /**

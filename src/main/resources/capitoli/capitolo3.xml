@@ -1,14 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Definizione del Capitolo 3: Aula B. Dal cortile il giocatore raggiunge l'Aula
-     B e ne trova gli indizi. La porta si supera per tre vie (Carisma/Investigazione/
-     Intuizione) o perquisendo l'aula; tutta questa logica condizionale vive nelle
-     classi e nella logica di gioco. L'XML monta solo le scene e i riferimenti.
-     L'ultima scena e' terminale: il suo completamento conclude la campagna
-     (TO BE CONTINUED / onGameCompleted). -->
-<capitolo id="capitolo3" titolo="Capitolo 3: L'aula B" scenaIniziale="cortile">
+<!-- Definizione del Capitolo 3: Aula B. Il capitolo riprende nell'aula LA1, dove
+     il giocatore ha appena letto l'email: da qui esce liberamente nel cortile e
+     si dirige al Polo B per raggiungere l'Aula B. La porta dell'Aula B si supera
+     per tre vie (Carisma/Investigazione/Intuizione) o perquisendo l'aula; tutta
+     questa logica condizionale vive nelle classi e nella logica di gioco. L'XML
+     monta solo le scene e i riferimenti. L'ultima scena e' terminale: il suo
+     completamento conclude la campagna (TO BE CONTINUED / onGameCompleted). -->
+<capitolo id="capitolo3" titolo="Capitolo 3: L'aula B" scenaIniziale="aula_la1">
 
-    <scena id="cortile" titolo="Cortile del Polo"
-           descrizione="Torni nel cortile. «Ok, ora devo dirigermi all'altro edificio per entrare in Aula B.»">
+    <!-- Scena iniziale: l'aula LA1, ripresa esattamente come si era conclusa il
+         capitolo 2 (giocatore davanti al PC, tecnico al suo posto). L'uscita verso
+         il cortile non è un elemento visibile: è la porta in basso a destra, a cui
+         ci si avvicina per tornare nel cortile con E. -->
+    <scena id="aula_la1" titolo="Aula LA1"
+           descrizione="Sei ancora nel laboratorio LA1. Hai letto abbastanza: è ora di muoversi.">
+        <npc ref="tecnico_laboratorio"/>
+        <transizione etichetta="Esci nel cortile" destinazione="cortile"/>
+    </scena>
+
+    <scena id="cortile" titolo="Cortile del Polo di Informatica"
+           descrizione="Torni nel cortile del Polo di Informatica. Da una parte l'aula LA1, dall'altra il Polo B con l'Aula B.">
+        <transizione etichetta="Rientra in Aula LA1" destinazione="aula_la1"/>
         <transizione etichetta="Vai verso l'Aula B" destinazione="ingresso_aula_b"/>
     </scena>
 
