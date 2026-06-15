@@ -1054,7 +1054,7 @@ public class ExplorationView implements GameListener {
             stato.getPlayer().aggiungiXp(AULA_B_XP_INDIZIO);
             aggiornaHud();
             rimuoviElemento(luccichio);
-            proseguiOFineAulaB();
+            mostraPotenziamentoSeDovuto(this::proseguiOFineAulaB);
         }, List.of());
     }
 
@@ -1070,7 +1070,7 @@ public class ExplorationView implements GameListener {
                     stato.getPlayer().aggiungiXp(AULA_B_XP_INDIZIO);
                     aggiornaHud();
                     rimuoviElemento(luccichio);
-                    proseguiOFineAulaB();
+                    mostraPotenziamentoSeDovuto(this::proseguiOFineAulaB);
                 }, List.of()), List.of());
     }
 
@@ -1100,8 +1100,10 @@ public class ExplorationView implements GameListener {
                     engine.trovaIndizio(ClueCatalog.orologio());
                     stato.getPlayer().aggiungiXp(AULA_B_XP_PERQUISIZIONE);
                     aggiornaHud();
-                    chiudiOverlay();
-                    concludiAulaB();
+                    mostraPotenziamentoSeDovuto(() -> {
+                        chiudiOverlay();
+                        concludiAulaB();
+                    });
                 }, List.of()), List.of());
     }
 
@@ -1477,9 +1479,10 @@ public class ExplorationView implements GameListener {
         aggiornaHud();
         var indizio = resolver.indizioDi(npc.getId());
         if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
-            mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo());
+            mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo(),
+                    () -> mostraPotenziamentoSeDovuto(this::chiudiOverlay), List.of());
         } else {
-            chiudiOverlay();
+            mostraPotenziamentoSeDovuto(this::chiudiOverlay);
         }
     }
 
@@ -1538,10 +1541,11 @@ public class ExplorationView implements GameListener {
         aggiornaHud();
         // Alla chiusura della battuta, se ora il giocatore ha sia la chiave sia
         // l'indizio, parte il pensiero che lo indirizza verso il PC di Antonio.
-        mostraDialogo(npc.getNome(), testo.toString(), () -> {
-            chiudiOverlay();
-            forsePensieroIndagine();
-        }, List.of());
+        mostraDialogo(npc.getNome(), testo.toString(),
+                () -> mostraPotenziamentoSeDovuto(() -> {
+                    chiudiOverlay();
+                    forsePensieroIndagine();
+                }), List.of());
     }
 
     private void raccogliOggetto(ItemInteraction oggetto, ElementoScena elemento) {
@@ -1739,9 +1743,11 @@ public class ExplorationView implements GameListener {
      */
     private void concludiCapitoloDue() {
         engine.avanza("email_vittima");
-        mostraSceltaUpgrade("Capitolo completato",
+        // Prima l'eventuale potenziamento a 100 XP (es. dallo sblocco del PC), poi la
+        // scelta di fine capitolo (potenziamento gratuito prima del capitolo 3).
+        mostraPotenziamentoSeDovuto(() -> mostraSceltaUpgrade("Capitolo completato",
                 "Scegli una statistica da potenziare prima del prossimo capitolo:",
-                engine::concludiCapitolo);
+                engine::concludiCapitolo));
     }
 
     /**
@@ -2052,6 +2058,28 @@ public class ExplorationView implements GameListener {
         mostraOverlay(velo(pannello), false);
     }
 
+    /**
+     * Se il giocatore ha raggiunto la soglia di {@value Player#COSTO_XP_POTENZIAMENTO}
+     * XP, mostra la schermata di scelta della statistica da potenziare (consumando i
+     * 100 XP, così il contatore si riazzera) e ricontrolla per eventuali potenziamenti
+     * a catena; al termine — o subito, se sotto soglia — esegue {@code dopo}.
+     *
+     * @param dopo azione da eseguire una volta gestiti gli eventuali potenziamenti
+     */
+    private void mostraPotenziamentoSeDovuto(Runnable dopo) {
+        if (stato.getPlayer().getXp() >= Player.COSTO_XP_POTENZIAMENTO) {
+            mostraSceltaUpgrade("Potenziamento disponibile",
+                    "Hai raggiunto 100 XP! Scegli una statistica da potenziare:",
+                    statistica -> {
+                        stato.getPlayer().potenziaStatistica(statistica);
+                        aggiornaHud();
+                        mostraPotenziamentoSeDovuto(dopo);
+                    });
+        } else if (dopo != null) {
+            dopo.run();
+        }
+    }
+
     private void mostraOverlayFinale(String titolo, String sottotitolo) {
         Label etichettaTitolo = new Label(titolo);
         etichettaTitolo.getStyleClass().add("overlay-title");
@@ -2208,8 +2236,8 @@ public class ExplorationView implements GameListener {
 
     @Override
     public void onUpgradeStatisticaDisponibile() {
-        mostraSceltaUpgrade("Upgrade statistica disponibile",
-                "Scegli la statistica da potenziare:", engine::applicaUpgrade);
+        mostraSceltaUpgrade("Potenziamento disponibile",
+                "Hai raggiunto 100 XP! Scegli una statistica da potenziare:", engine::applicaUpgrade);
     }
 
     @Override
