@@ -45,7 +45,6 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
@@ -69,7 +68,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 /**
  * Schermata di esplorazione: il giocatore si muove liberamente nell'ambientazione
@@ -652,7 +650,7 @@ public class ExplorationView implements GameListener {
         esito.setMaxWidth(460);
         esito.setTextAlignment(TextAlignment.CENTER);
 
-        VBox tastierino = creaPannelloTastierino(2, codice -> {
+        VBox tastierino = TastierinoNumerico.crea(2, codice -> {
             PuzzleOutcome risultato = pcPuzzle.tenta(player, codice);
             aggiornaHud();
             if (risultato.risolto()) {
@@ -2091,7 +2089,7 @@ public class ExplorationView implements GameListener {
         esito.setMaxWidth(420);
         esito.setTextAlignment(TextAlignment.CENTER);
 
-        VBox tastierino = creaPannelloTastierino(4, codice -> {
+        VBox tastierino = TastierinoNumerico.crea(4, codice -> {
             PuzzleOutcome outcome = puzzle.tenta(player, codice);
             esito.setText(outcome.messaggio());
             if (outcome.risolto()) {
@@ -2129,77 +2127,6 @@ public class ExplorationView implements GameListener {
         StackPane velo = new StackPane(contenuto);
         velo.getStyleClass().addAll("overlay-veil", "pixel-font");
         mostraOverlay(velo, true);
-    }
-
-    /**
-     * Crea un pannello con display e tastierino numerico (al più {@code maxCifre}
-     * cifre). Premendo OK invoca {@code conferma} con le cifre digitate: se torna
-     * {@code false} (codice errato) il display viene azzerato per ritentare.
-     */
-    private VBox creaPannelloTastierino(int maxCifre, Predicate<String> conferma) {
-        StringBuilder codice = new StringBuilder();
-        Label display = new Label();
-        display.getStyleClass().add("keypad-display");
-        Runnable aggiornaDisplay = () -> {
-            StringBuilder mostrato = new StringBuilder();
-            for (int i = 0; i < maxCifre; i++) {
-                mostrato.append(i < codice.length() ? codice.charAt(i) : '_');
-                if (i < maxCifre - 1) {
-                    mostrato.append(' ');
-                }
-            }
-            display.setText(mostrato.toString());
-        };
-        aggiornaDisplay.run();
-
-        GridPane griglia = new GridPane();
-        griglia.setHgap(8);
-        griglia.setVgap(8);
-        griglia.setAlignment(Pos.CENTER);
-        for (int n = 1; n <= 9; n++) {
-            griglia.add(tastoCifra(String.valueOf(n), codice, aggiornaDisplay, maxCifre), (n - 1) % 3, (n - 1) / 3);
-        }
-        Button cancella = tastoSpeciale("←");
-        cancella.setOnAction(e -> {
-            if (codice.length() > 0) {
-                codice.deleteCharAt(codice.length() - 1);
-                aggiornaDisplay.run();
-            }
-        });
-        Button ok = tastoSpeciale("OK");
-        ok.setOnAction(e -> {
-            if (!conferma.test(codice.toString())) {
-                codice.setLength(0);
-                aggiornaDisplay.run();
-            }
-        });
-        griglia.add(cancella, 0, 3);
-        griglia.add(tastoCifra("0", codice, aggiornaDisplay, maxCifre), 1, 3);
-        griglia.add(ok, 2, 3);
-
-        VBox box = new VBox(12, display, griglia);
-        box.setAlignment(Pos.CENTER);
-        return box;
-    }
-
-    /** Crea un tasto-cifra del tastierino: aggiunge la cifra al codice (max {@code maxCifre}). */
-    private Button tastoCifra(String cifra, StringBuilder codice, Runnable aggiornaDisplay, int maxCifre) {
-        Button b = tastoSpeciale(cifra);
-        b.setOnAction(e -> {
-            if (codice.length() < maxCifre) {
-                codice.append(cifra);
-                aggiornaDisplay.run();
-            }
-        });
-        return b;
-    }
-
-    /** Crea un tasto quadrato del tastierino con l'etichetta indicata. */
-    private Button tastoSpeciale(String etichetta) {
-        Button b = new Button(etichetta);
-        b.getStyleClass().addAll("game-button", "keypad-key");
-        b.setMinSize(60, 56);
-        return b;
     }
 
     /**
