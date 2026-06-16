@@ -1,5 +1,7 @@
 package it.unicam.cs.mpgc.rpg126036.view;
 
+import it.unicam.cs.mpgc.rpg126036.achievement.Achievement;
+import it.unicam.cs.mpgc.rpg126036.achievement.AchievementManager;
 import it.unicam.cs.mpgc.rpg126036.app.ContentResolver;
 import it.unicam.cs.mpgc.rpg126036.app.GameSession;
 import it.unicam.cs.mpgc.rpg126036.engine.GameEngine;
@@ -11,6 +13,7 @@ import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
 import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
+import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
 import it.unicam.cs.mpgc.rpg126036.model.NpcCatalog;
@@ -35,6 +38,7 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -98,7 +102,7 @@ public class ExplorationView implements GameListener {
     // Energia persa forzando il PC della vittima (via di riserva, sempre disponibile).
     private static final int COSTO_FORZA_BRUTA_PC = 30;
     // XP guadagnati sbloccando il PC della vittima, in qualunque modo avvenga.
-    private static final int PC_XP = 50;
+    private static final int PC_XP = 30;
     // Numero binario da convertire (enigma del PC, via Investigazione) e sua soluzione.
     private static final String PC_BINARIO = "11010";
     private static final String PC_SOLUZIONE = "26";
@@ -112,15 +116,15 @@ public class ExplorationView implements GameListener {
     private static final double POLO_B_NPC_X = 0.73;
     private static final double POLO_B_NPC_Y = 0.58;
     // XP guadagnati convincendo l'addetto ad aprire la porta dell'Aula B.
-    private static final int ADDETTO_XP = 80;
+    private static final int ADDETTO_XP = 60;
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
     // Aula B al buio: raggio del cono di luce della torcia attorno al giocatore (px).
     private static final double TORCIA_RAGGIO = 95;
     // XP per ogni indizio trovato con le scorciatoie (Investigazione/Intuizione)
     // e per la perquisizione "a tentoni", più l'energia spesa da quest'ultima.
-    private static final int AULA_B_XP_INDIZIO = 80;
-    private static final int AULA_B_XP_PERQUISIZIONE = 30;
+    private static final int AULA_B_XP_INDIZIO = 60;
+    private static final int AULA_B_XP_PERQUISIZIONE = 10;
     private static final int COSTO_PERQUISIZIONE = 40;
     // Pensieri e testi narrativi dell'Aula B.
     private static final String AULA_B_PENSIERO_LUCCICHIO =
@@ -141,11 +145,14 @@ public class ExplorationView implements GameListener {
     private static final String AULA_B_TESTO_PERQUISIZIONE_ESITO =
             "Dopo una lunga e affannosa ricerca, con la polizia ormai in arrivo, trovi comunque un "
                     + "orologio rotto a terra.";
+    private static final String AULA_B_PENSIERO_PERQUISIZIONE =
+            "Dietro c'è un'incisione: E.M. Ma sono le stesse iniziali della mail!";
 
     private final AppContext context;
     private final GameEngine engine;
     private final GameState stato;
     private final Campaign campaign;
+    private final AchievementManager achievementManager;
     private final ContentResolver resolver;
     private final StackPane root;
 
@@ -178,6 +185,9 @@ public class ExplorationView implements GameListener {
     // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
     // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
     private boolean pensieroIndagineMostrato;
+    // Diventa true non appena si esamina un PC sbagliato: serve a sbloccare il
+    // traguardo "Cercatore d'oro" solo se il PC giusto è il primissimo a essere cliccato.
+    private boolean pcSbagliatoToccato;
     // Pensiero mostrato una sola volta appena usciti dal Polo A nel cortile (capitolo 3).
     private boolean pensieroCortileMostrato;
     // Effetto torcia dell'Aula B (rettangolo nero col foro attorno al giocatore), non
@@ -186,6 +196,9 @@ public class ExplorationView implements GameListener {
     // Animazioni della scena corrente (es. la pulsazione dei luccichii), fermate alla
     // ricostruzione della scena per non lasciarle attive a vuoto.
     private final List<Timeline> animazioniScena = new ArrayList<>();
+    // Quando true, onSceneChanged non ricostruisce la vista: usato per le scene "di
+    // servizio" (email_vittima, epilogo) raggiunte solo per far avanzare il motore.
+    private boolean sopprimiRicostruzioneScena;
     // Quando true, la prossima ricostruzione di scena non riposiziona il giocatore al
     // punto di comparsa ma ne conserva la posizione: serve all'avvio del capitolo 3,
     // che riprende l'aula LA1 esattamente come si era concluso il capitolo 2.
@@ -194,6 +207,9 @@ public class ExplorationView implements GameListener {
     // Un solo pannello modale alla volta in sovrimpressione.
     private Node overlayCorrente;
     private boolean overlayChiudibile;
+    // Traguardo appena sbloccato e in attesa di essere annunciato col dialog box, al
+    // termine dell'interazione che lo ha generato (come l'annuncio "Nuovo indizio").
+    private Achievement traguardoPendente;
 
     // Ritmo dell'effetto macchina da scrivere dei dialoghi (come la schermata iniziale).
     private static final Duration RITMO_DIALOGO = Duration.millis(18);
@@ -207,16 +223,19 @@ public class ExplorationView implements GameListener {
         this.engine = session.getEngine();
         this.stato = session.getStato();
         this.campaign = session.getCampaign();
+        this.achievementManager = session.getAchievementManager();
         this.resolver = context.contentResolver();
         this.sprite = new CharacterSprite(stato.getPlayer().getClasse());
 
         root = new StackPane(costruisciLayout());
         root.getStyleClass().add("screen-root");
+        aggiungiPulsanteInventario();
 
         this.ciclo = creaCicloDiGioco();
         collegaInputAllaScena();
 
         engine.addListener(this);
+        achievementManager.addAchievementListener(t -> traguardoPendente = t);
         costruisciElementiScena();
         aggiornaHud();
     }
@@ -467,7 +486,11 @@ public class ExplorationView implements GameListener {
 
     private void aggiungiOggetto(ItemInteraction oggetto) {
         var item = oggetto.getItem();
-        String etichettaAzione = "Raccogli " + item.nome();
+        // La chiave del capitolo 1 è ancora anonima al ritrovamento: l'etichetta non
+        // ne svela il proprietario (lo si scopre col pensiero subito dopo la raccolta).
+        String etichettaAzione = ItemCatalog.ID_CHIAVE_CAPITOLO1.equals(item.id())
+                ? "Raccogli la chiave insanguinata"
+                : "Raccogli " + item.nome();
         ImageView sprite = caricaSprite("/images/sprite/oggetti/" + item.id() + ".png", ALTEZZA_OGGETTO);
         // Con lo sprite dedicato l'oggetto si mostra come immagine, senza il nome
         // sotto; senza sprite si ripiega sul vecchio segnaposto colorato con nome.
@@ -527,6 +550,9 @@ public class ExplorationView implements GameListener {
      * a posizione fissa, in corrispondenza dei monitor.
      */
     private void aggiungiPcAula() {
+        // Nuova disposizione dei PC: azzera la traccia degli errori per il traguardo
+        // "Cercatore d'oro" (PC giusto al primissimo click).
+        pcSbagliatoToccato = false;
         double[][] posizioni = {
                 {0.14, 0.50}, {0.25, 0.50},   // banco di sinistra
                 {0.45, 0.50}, {0.56, 0.50},   // banco centrale
@@ -556,6 +582,17 @@ public class ExplorationView implements GameListener {
      * In ogni caso lo sblocco assegna {@value #PC_XP} XP (in {@link #pcVittimaRisolto}).
      */
     private void apriPcVittima(ElementoScena elemento) {
+        // Traguardo "Cercatore d'oro": il PC di Antonio è il primissimo computer
+        // esaminato (nessuno dei cinque sbagliati toccato prima). Lo si annuncia col
+        // dialog box prima di aprire il terminale.
+        if (!pcSbagliatoToccato) {
+            achievementManager.segnalaPcVittimaAlPrimoColpo();
+        }
+        annunciaTraguardoSePresente(() -> procediAperturaPc(elemento));
+    }
+
+    /** Apertura vera e propria del terminale, secondo le vie disponibili. */
+    private void procediAperturaPc(ElementoScena elemento) {
         Player player = stato.getPlayer();
         if (stato.hasFlag(ContentResolver.FLAG_ASSISTENTE)) {
             mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
@@ -704,6 +741,8 @@ public class ExplorationView implements GameListener {
      * si esaurisce scatta il game over.
      */
     private void pcSbagliato() {
+        // Un PC sbagliato esclude definitivamente il traguardo "Cercatore d'oro".
+        pcSbagliatoToccato = true;
         Player player = stato.getPlayer();
         player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
         aggiornaHud();
@@ -1096,7 +1135,7 @@ public class ExplorationView implements GameListener {
         // Prima il ritrovamento a terra, poi lo stesso identico pensiero della via
         // Investigazione sull'orologio (incisione "EM", le iniziali della mail).
         mostraDialogo("", AULA_B_TESTO_PERQUISIZIONE_ESITO,
-                () -> mostraDialogo("", AULA_B_TESTO_OROLOGIO, () -> {
+                () -> mostraDialogo(stato.getPlayer().getNome(), AULA_B_PENSIERO_PERQUISIZIONE, () -> {
                     engine.trovaIndizio(ClueCatalog.orologio());
                     stato.getPlayer().aggiungiXp(AULA_B_XP_PERQUISIZIONE);
                     aggiornaHud();
@@ -1126,7 +1165,9 @@ public class ExplorationView implements GameListener {
      * il motore segnala la fine della campagna (TO BE CONTINUED).
      */
     private void concludiAulaB() {
-        engine.avanza("epilogo");
+        // Avanza all'epilogo (che fa scattare la fine partita) senza ricostruire la
+        // vista: l'Aula B al buio resta sotto l'overlay di fine campagna.
+        avanzaSenzaRicostruire("epilogo");
     }
 
     private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
@@ -1552,12 +1593,28 @@ public class ExplorationView implements GameListener {
         InteractionResult esito = engine.raccogli(oggetto);
         rimuoviElemento(elemento);
         aggiornaHud();
-        // Alla chiusura del messaggio, se ora il giocatore ha sia la chiave sia
-        // l'indizio, parte il pensiero che lo indirizza verso il PC di Antonio.
-        mostraMessaggio("Oggetto", esito.messaggio(), () -> {
-            chiudiOverlay();
-            forsePensieroIndagine();
-        });
+        boolean eChiave = ItemCatalog.ID_CHIAVE_CAPITOLO1.equals(oggetto.getItem().id());
+        // Coda comune dopo il messaggio di raccolta: l'eventuale annuncio di traguardo
+        // (es. "Chiave insanguinata") e poi, se il giocatore ha sia la chiave sia
+        // l'indizio, il pensiero che lo indirizza verso il PC di Antonio.
+        Runnable coda = () -> annunciaTraguardoSePresente(this::forsePensieroIndagine);
+        // Per la chiave, prima della coda si inserisce il pensiero di riconoscimento.
+        Runnable dopoMessaggio = eChiave
+                ? () -> {
+                    chiudiOverlay();
+                    mostraDialogo(stato.getPlayer().getNome(),
+                            "Ma questo portachiavi lo riconosco... sono le chiavi di Antonio!",
+                            () -> {
+                                chiudiOverlay();
+                                coda.run();
+                            }, List.of());
+                }
+                : () -> {
+                    chiudiOverlay();
+                    coda.run();
+                };
+        String testoRaccolta = eChiave ? "Hai raccolto una chiave insanguinata." : esito.messaggio();
+        mostraMessaggio("Oggetto", testoRaccolta, dopoMessaggio);
     }
 
     private void usaUscita(Transition transizione) {
@@ -1613,6 +1670,143 @@ public class ExplorationView implements GameListener {
 
     private void mostraMessaggio(String titolo, String corpo) {
         mostraMessaggio(titolo, corpo, this::chiudiOverlay);
+    }
+
+    // ----------------------------------------------------------------------
+    // Inventario (libro): indizi, prove e obiettivi
+    // ----------------------------------------------------------------------
+
+    /**
+     * Aggiunge in basso a destra la piccola icona a forma di libro che apre
+     * l'inventario. Resta sotto agli eventuali overlay (dialoghi, enigmi, pausa),
+     * così è cliccabile solo durante la libera esplorazione.
+     */
+    private void aggiungiPulsanteInventario() {
+        Button libro = new Button("📖");
+        libro.getStyleClass().add("book-button");
+        libro.setFocusTraversable(false);
+        libro.setOnAction(e -> {
+            if (overlayCorrente == null && !engine.isInPausa()) {
+                mostraInventario();
+            }
+        });
+        StackPane.setAlignment(libro, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(libro, new Insets(0, 24, 72, 0));
+        root.getChildren().add(libro);
+    }
+
+    /**
+     * Apre l'inventario come overlay con tre sezioni selezionabili: "Indizi"
+     * (il diario), "Prove" (gli oggetti raccolti) e "Obiettivi" (i traguardi).
+     */
+    private void mostraInventario() {
+        Label titolo = new Label("Diario");
+        titolo.getStyleClass().add("overlay-title");
+
+        // Area scorrevole riempita in base alla sezione selezionata.
+        VBox contenuto = new VBox(14);
+        contenuto.setAlignment(Pos.TOP_LEFT);
+        ScrollPane scorri = new ScrollPane(contenuto);
+        scorri.setFitToWidth(true);
+        scorri.setPrefViewportHeight(280);
+        scorri.setMaxWidth(560);
+        scorri.getStyleClass().add("inventory-scroll");
+
+        Button indizi = new Button("Indizi");
+        Button prove = new Button("Prove");
+        Button obiettivi = new Button("Obiettivi");
+        List<Button> tab = List.of(indizi, prove, obiettivi);
+        for (Button b : tab) {
+            b.getStyleClass().add("game-button");
+            b.setFocusTraversable(false);
+        }
+        indizi.setOnAction(e -> selezionaSezione(tab, indizi, contenuto, this::riempiIndizi));
+        prove.setOnAction(e -> selezionaSezione(tab, prove, contenuto, this::riempiProve));
+        obiettivi.setOnAction(e -> selezionaSezione(tab, obiettivi, contenuto, this::riempiObiettivi));
+
+        HBox sezioni = new HBox(10, indizi, prove, obiettivi);
+        sezioni.setAlignment(Pos.CENTER);
+
+        Button chiudi = new Button("Chiudi");
+        chiudi.getStyleClass().add("game-button");
+        chiudi.setOnAction(e -> chiudiOverlay());
+
+        VBox pannello = new VBox(18, titolo, sezioni, scorri, chiudi);
+        pannello.setAlignment(Pos.CENTER);
+        pannello.setMaxWidth(620);
+        pannello.getStyleClass().add("pixel-font");
+
+        // All'apertura mostra la sezione "Indizi".
+        selezionaSezione(tab, indizi, contenuto, this::riempiIndizi);
+        mostraOverlay(velo(pannello), true);
+    }
+
+    /** Evidenzia il pulsante della sezione scelta e ne ricostruisce il contenuto. */
+    private void selezionaSezione(List<Button> tab, Button attivo, VBox contenuto,
+                                  Consumer<VBox> riempitore) {
+        tab.forEach(b -> b.getStyleClass().remove("tab-attivo"));
+        attivo.getStyleClass().add("tab-attivo");
+        contenuto.getChildren().clear();
+        riempitore.accept(contenuto);
+    }
+
+    /** Sezione "Indizi": le informazioni raccolte nel diario del giocatore. */
+    private void riempiIndizi(VBox contenuto) {
+        List<Clue> indizi = stato.getDiario().getIndizi();
+        if (indizi.isEmpty()) {
+            contenuto.getChildren().add(voceVuota("Nessun indizio raccolto, per ora."));
+            return;
+        }
+        indizi.forEach(c -> contenuto.getChildren().add(voce("• " + c.titolo(), c.testo())));
+    }
+
+    /** Sezione "Prove": gli oggetti fisici raccolti nell'inventario. */
+    private void riempiProve(VBox contenuto) {
+        List<Item> prove = stato.getInventario().getOggetti();
+        if (prove.isEmpty()) {
+            contenuto.getChildren().add(voceVuota("Nessuna prova raccolta, per ora."));
+            return;
+        }
+        prove.forEach(i -> contenuto.getChildren().add(voce("• " + i.nome(), i.descrizione())));
+    }
+
+    /**
+     * Sezione "Obiettivi": mostra solo i traguardi già sbloccati. Quelli ancora da
+     * ottenere restano invisibili, così non ne svelano in anticipo l'esistenza.
+     */
+    private void riempiObiettivi(VBox contenuto) {
+        List<Achievement> sbloccati = achievementManager.getSbloccati();
+        if (sbloccati.isEmpty()) {
+            contenuto.getChildren().add(voceVuota("Nessun obiettivo sbloccato, per ora."));
+            return;
+        }
+        for (Achievement a : sbloccati) {
+            Node voce = voce("🏆 " + a.titolo(), a.descrizione());
+            Label esito = new Label("Sbloccato");
+            esito.getStyleClass().add("achievement-unlocked");
+            ((VBox) voce).getChildren().add(esito);
+            contenuto.getChildren().add(voce);
+        }
+    }
+
+    /** Voce dell'inventario: titolo in evidenza e testo descrittivo a capo. */
+    private Node voce(String titolo, String testo) {
+        Label t = new Label(titolo);
+        t.getStyleClass().add("inventory-entry-title");
+        Label d = new Label(testo);
+        d.getStyleClass().add("inventory-entry-text");
+        d.setWrapText(true);
+        d.setMaxWidth(520);
+        return new VBox(2, t, d);
+    }
+
+    /** Messaggio segnaposto per una sezione ancora vuota. */
+    private Node voceVuota(String messaggio) {
+        Label l = new Label(messaggio);
+        l.getStyleClass().add("inventory-entry-text");
+        l.setWrapText(true);
+        l.setMaxWidth(520);
+        return l;
     }
 
     /**
@@ -1742,12 +1936,28 @@ public class ExplorationView implements GameListener {
      * indirizza il giocatore verso il Polo B.
      */
     private void concludiCapitoloDue() {
-        engine.avanza("email_vittima");
+        // Completa il capitolo sulla scena terminale dell'email senza ricostruire la
+        // vista: lo sfondo resta l'aula LA1 già presente sotto gli overlay.
+        avanzaSenzaRicostruire("email_vittima");
         // Prima l'eventuale potenziamento a 100 XP (es. dallo sblocco del PC), poi la
         // scelta di fine capitolo (potenziamento gratuito prima del capitolo 3).
         mostraPotenziamentoSeDovuto(() -> mostraSceltaUpgrade("Capitolo completato",
                 "Scegli una statistica da potenziare prima del prossimo capitolo:",
                 engine::concludiCapitolo));
+    }
+
+    /**
+     * Avanza alla scena indicata senza far ricostruire la vista: la schermata
+     * corrente (sfondo, titolo) resta invariata. Serve per le scene "di servizio"
+     * (email_vittima, epilogo) che esistono solo per far avanzare il motore mentre
+     * il contenuto vero è mostrato come overlay.
+     *
+     * @param idScena id della scena di servizio verso cui avanzare
+     */
+    private void avanzaSenzaRicostruire(String idScena) {
+        sopprimiRicostruzioneScena = true;
+        engine.avanza(idScena);
+        sopprimiRicostruzioneScena = false;
     }
 
     /**
@@ -2131,6 +2341,32 @@ public class ExplorationView implements GameListener {
         root.getChildren().add(velo);
     }
 
+    /**
+     * Se un traguardo è stato appena sbloccato, lo annuncia con il dialog box
+     * ("Obiettivo sbloccato: ..."), sullo stile dell'annuncio "Nuovo indizio";
+     * alla chiusura esegue {@code dopo}. Se non c'è nulla da annunciare esegue
+     * subito {@code dopo}. Così l'avviso non viene sovrascritto dai pannelli che
+     * seguono lo sblocco (es. il dialogo del PC o il messaggio di raccolta).
+     *
+     * @param dopo azione da eseguire dopo l'eventuale annuncio (può essere nulla)
+     */
+    private void annunciaTraguardoSePresente(Runnable dopo) {
+        if (traguardoPendente == null) {
+            if (dopo != null) {
+                dopo.run();
+            }
+            return;
+        }
+        Achievement traguardo = traguardoPendente;
+        traguardoPendente = null;
+        mostraDialogo("", "🏆 Obiettivo sbloccato: " + traguardo.titolo(), () -> {
+            chiudiOverlay();
+            if (dopo != null) {
+                dopo.run();
+            }
+        }, List.of());
+    }
+
     private void chiudiOverlay() {
         // Ferma l'eventuale dialogo in corso prima di rimuovere il pannello.
         if (dialogoMacchina != null) {
@@ -2166,6 +2402,12 @@ public class ExplorationView implements GameListener {
 
     @Override
     public void onSceneChanged(Scene scena) {
+        // Le scene "di servizio" (email_vittima, epilogo) servono solo al motore per
+        // completare il capitolo: non vanno mostrate, così la schermata corrente (e lo
+        // sfondo già presente) resta invariata sotto gli overlay di potenziamento/fine.
+        if (sopprimiRicostruzioneScena) {
+            return;
+        }
         costruisciElementiScena();
         aggiornaHud();
         verificaCompletamentoCapitolo();

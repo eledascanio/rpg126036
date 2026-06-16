@@ -6,6 +6,9 @@
 
 .root {
     -fx-font-family: "Consolas", "Space Mono", monospace;
+    /* Anello di focus coerente col tema (al posto dell'azzurro di default). */
+    -fx-focus-color: #ffb4a8;
+    -fx-faint-focus-color: rgba(255, 180, 168, 0.25);
 }
 
 /* --- Sfondo e velo di leggibilità --- */
@@ -23,7 +26,7 @@
 
 /* --- Titolo --- */
 .title {
-    -fx-font-size: 72px;
+    -fx-font-size: 84px;
     -fx-font-weight: bold;
     -fx-text-fill: #ffb4a8;
     -fx-effect: dropshadow(gaussian, #410000, 0, 1.0, 4, 4);
@@ -55,6 +58,53 @@
 /* Overlay scuro aggiuntivo, usato solo nella schermata di creazione personaggio. */
 .creation-overlay {
     -fx-background-color: rgba(0, 0, 0, 0.55);
+}
+
+/* --- Campo di testo (nome personaggio): tema scuro, come i pulsanti --- */
+.text-field {
+    -fx-font-size: 18px;
+    -fx-text-fill: #e5e2e1;
+    -fx-prompt-text-fill: rgba(229, 226, 225, 0.45);
+    -fx-background-color: #1c1b1b;
+    -fx-background-radius: 0;
+    -fx-border-color: rgba(170, 137, 132, 0.25);
+    -fx-border-width: 1;
+    -fx-border-radius: 0;
+    -fx-padding: 10 14 10 14;
+    /* Evidenziazione del testo selezionato coerente col tema (non azzurra). */
+    -fx-highlight-fill: rgba(255, 180, 168, 0.35);
+    -fx-highlight-text-fill: #ffffff;
+}
+
+.text-field:focused {
+    -fx-border-color: #ffb4a8;
+}
+
+/* --- Card di scelta personaggio (ToggleButton): tema scuro, come i pulsanti --- */
+.toggle-button {
+    -fx-text-fill: #e5e2e1;
+    -fx-background-color: #1c1b1b;
+    -fx-background-radius: 0;
+    -fx-border-color: rgba(170, 137, 132, 0.25);
+    -fx-border-width: 1;
+    -fx-border-radius: 0;
+    -fx-cursor: hand;
+}
+
+.toggle-button:hover {
+    -fx-border-color: #ffb4a8;
+}
+
+/* Selezione ben evidente: bordo coral spesso, sfondo schiarito e bagliore. */
+.toggle-button:selected {
+    -fx-background-color: #2a2624;
+    -fx-border-color: #ffb4a8;
+    -fx-border-width: 3;
+    -fx-effect: dropshadow(gaussian, rgba(255, 180, 168, 0.55), 18, 0.35, 0, 0);
+}
+
+.toggle-button:selected:hover {
+    -fx-border-color: #ffd0c8;
 }
 
 /* --- Testo generico chiaro su sfondo scuro --- */
@@ -187,4 +237,57 @@
 .keypad-key {
     -fx-font-size: 22px;
     -fx-alignment: center;
+}
+
+/* --- Icona libro (apertura inventario), in basso a destra sulla mappa --- */
+.book-button {
+    -fx-font-size: 30px;
+    -fx-background-color: #ffb4a8;
+    -fx-background-radius: 0;
+    -fx-border-color: #2a1512;
+    -fx-border-width: 2;
+    -fx-padding: 8 14 8 14;
+    -fx-cursor: hand;
+    /* Bagliore coral per staccare l'icona dallo sfondo della mappa. */
+    -fx-effect: dropshadow(gaussian, rgba(255, 180, 168, 0.7), 14, 0.4, 0, 0);
+}
+
+.book-button:hover {
+    -fx-background-color: #ffd0c8;
+    -fx-border-color: #000000;
+}
+
+/* --- Inventario (diario): indizi, prove, obiettivi --- */
+.inventory-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-border-color: rgba(170, 137, 132, 0.4);
+    -fx-border-width: 1;
+    -fx-padding: 8;
+}
+
+.inventory-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+/* Pulsante della sezione attiva: bordo coral evidente. */
+.tab-attivo {
+    -fx-border-color: #ffb4a8;
+    -fx-text-fill: #ffb4a8;
+    -fx-border-width: 2;
+}
+
+.inventory-entry-title {
+    -fx-font-size: 22px;
+    -fx-text-fill: #ffb4a8;
+}
+
+.inventory-entry-text {
+    -fx-font-size: 18px;
+    -fx-text-fill: #e5e2e1;
+}
+
+.achievement-unlocked {
+    -fx-font-size: 16px;
+    -fx-text-fill: #2ecc71;
 }

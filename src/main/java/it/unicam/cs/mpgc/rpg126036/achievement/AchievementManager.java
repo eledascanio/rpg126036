@@ -33,6 +33,9 @@ public class AchievementManager implements GameListener {
     /** Id del capitolo in cui la chiave sblocca il primo traguardo. */
     private static final String ID_CAPITOLO_UNO = "capitolo1";
 
+    /** Id del capitolo in cui si affronta il PC della vittima. */
+    private static final String ID_CAPITOLO_DUE = "capitolo2";
+
     private final GameState stato;
     private final Map<String, Achievement> registro = new LinkedHashMap<>();
     private final Set<String> sbloccati = new LinkedHashSet<>();
@@ -99,6 +102,18 @@ public class AchievementManager implements GameListener {
                 && ItemCatalog.ID_CHIAVE_CAPITOLO1.equals(item.id())
                 && isCapitoloCorrente(ID_CAPITOLO_UNO)) {
             sblocca(AchievementCatalog.ID_CHIAVE_CAPITOLO1);
+        }
+    }
+
+    /**
+     * Segnala che il giocatore ha individuato il PC della vittima al primissimo
+     * click, senza aver esaminato alcun computer sbagliato: sblocca il relativo
+     * traguardo se ci si trova nel Capitolo 2. La condizione "primo colpo" e'
+     * verificata dalla vista, che invoca questo metodo solo quando soddisfatta.
+     */
+    public void segnalaPcVittimaAlPrimoColpo() {
+        if (isCapitoloCorrente(ID_CAPITOLO_DUE)) {
+            sblocca(AchievementCatalog.ID_PC_PRIMO_COLPO);
         }
     }
 

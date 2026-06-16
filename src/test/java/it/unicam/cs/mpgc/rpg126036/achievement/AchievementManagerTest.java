@@ -63,6 +63,26 @@ class AchievementManagerTest {
     }
 
     @Test
+    void ilPcAlPrimoColpoNelCapitolo2SbloccaIlTraguardo() {
+        GameState stato = statoNelCapitolo("capitolo2");
+        AchievementManager manager = new AchievementManager(stato);
+
+        manager.segnalaPcVittimaAlPrimoColpo();
+
+        assertTrue(manager.isSbloccato(AchievementCatalog.ID_PC_PRIMO_COLPO));
+    }
+
+    @Test
+    void ilPcAlPrimoColpoFuoriDalCapitolo2NonSbloccaNulla() {
+        GameState stato = statoNelCapitolo("capitolo1");
+        AchievementManager manager = new AchievementManager(stato);
+
+        manager.segnalaPcVittimaAlPrimoColpo();
+
+        assertFalse(manager.isSbloccato(AchievementCatalog.ID_PC_PRIMO_COLPO));
+    }
+
+    @Test
     void ilTraguardoVieneNotificatoUnaSolaVolta() {
         GameState stato = statoNelCapitolo("capitolo1");
         AchievementManager manager = new AchievementManager(stato);
