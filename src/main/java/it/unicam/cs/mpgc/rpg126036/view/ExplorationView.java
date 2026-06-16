@@ -207,8 +207,6 @@ public class ExplorationView implements GameListener {
     // termine dell'interazione che lo ha generato (come l'annuncio "Nuovo indizio").
     private Achievement traguardoPendente;
 
-    // Ritmo dell'effetto macchina da scrivere dei dialoghi (come la schermata iniziale).
-    private static final Duration RITMO_DIALOGO = Duration.millis(18);
     // Dialogo NPC eventualmente in corso: animazione e azione di avanzamento/chiusura.
     private Timeline dialogoMacchina;
     private Runnable avanzamentoDialogo;
@@ -1983,80 +1981,12 @@ public class ExplorationView implements GameListener {
      * @param opzioni  le scelte proposte al termine (eventualmente vuote)
      */
     private void mostraDialogo(String nome, String testo, Runnable alTermine, List<OpzioneDialogo> opzioni) {
-        Label etichettaNome = new Label(nome);
-        etichettaNome.getStyleClass().add("dialog-name");
-
-        Label etichettaTesto = new Label();
-        etichettaTesto.getStyleClass().add("dialog-text");
-        etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(Double.MAX_VALUE);
-
-        Label prompt = new Label("▼  E / clic per proseguire");
-        prompt.getStyleClass().add("dialog-prompt");
-        HBox rigaPrompt = new HBox(prompt);
-        rigaPrompt.setAlignment(Pos.CENTER_RIGHT);
-
-        // Striscia orizzontale in basso: nome in alto, testo al centro (2-3 righe),
-        // indicatore in basso a destra.
-        BorderPane box = new BorderPane();
-        box.getStyleClass().addAll("dialog-box", "pixel-font");
-        box.setTop(etichettaNome);
-        box.setCenter(etichettaTesto);
-        box.setBottom(rigaPrompt);
-        BorderPane.setAlignment(etichettaTesto, Pos.TOP_LEFT);
-        BorderPane.setMargin(etichettaTesto, new Insets(6, 0, 6, 0));
-
-        // Larghezza piena, altezza limitata a ~28% dello schermo, ancorata in basso:
-        // il resto della scena (mappa e personaggi) resta visibile sopra la barra.
-        box.setMaxWidth(Double.MAX_VALUE);
-        box.prefHeightProperty().bind(root.heightProperty().multiply(0.28));
-        box.setMaxHeight(Region.USE_PREF_SIZE);
-        StackPane.setAlignment(box, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(box, new Insets(0, 16, 16, 16));
-
-        // Effetto macchina da scrivere: un carattere a ogni frame.
-        int[] indice = {0};
-        Timeline macchina = new Timeline(new KeyFrame(RITMO_DIALOGO, e -> {
-            indice[0]++;
-            etichettaTesto.setText(testo.substring(0, indice[0]));
-        }));
-        macchina.setCycleCount(testo.length());
-
-        // A testo completato compaiono le scelte (se presenti), sostituendo il prompt.
-        Runnable mostraOpzioni = () -> {
-            if (opzioni.isEmpty()) {
-                return;
-            }
-            HBox barraOpzioni = new HBox(12);
-            barraOpzioni.setAlignment(Pos.CENTER_RIGHT);
-            for (OpzioneDialogo opzione : opzioni) {
-                Button scelta = new Button(opzione.etichetta());
-                scelta.getStyleClass().add("game-button");
-                scelta.setOnAction(e -> opzione.azione().run());
-                barraOpzioni.getChildren().add(scelta);
-            }
-            box.setBottom(barraOpzioni);
-        };
-        macchina.setOnFinished(e -> mostraOpzioni.run());
-
-        Runnable avanzamento = () -> {
-            if (macchina.getStatus() == Animation.Status.RUNNING) {
-                // Prima rivelazione completa, poi le scelte (o, senza scelte, la chiusura).
-                macchina.stop();
-                etichettaTesto.setText(testo);
-                mostraOpzioni.run();
-            } else if (opzioni.isEmpty()) {
-                alTermine.run();
-            }
-            // Con le scelte già mostrate l'avanzamento è inerte: si sceglie un pulsante.
-        };
-        box.setOnMouseClicked(e -> avanzamento.run());
-
+        DialogoBox.Sessione dialogo = DialogoBox.crea(root, nome, testo, alTermine, opzioni);
         // I campi vanno impostati dopo mostraOverlay, che azzera lo stato precedente.
-        mostraOverlay(box, true);
-        dialogoMacchina = macchina;
-        avanzamentoDialogo = avanzamento;
-        macchina.play();
+        mostraOverlay(dialogo.nodo(), true);
+        dialogoMacchina = dialogo.macchina();
+        avanzamentoDialogo = dialogo.avanzamento();
+        dialogo.avvia();
     }
 
     private void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
