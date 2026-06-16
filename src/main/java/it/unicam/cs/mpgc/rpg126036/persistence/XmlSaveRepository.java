@@ -34,8 +34,9 @@ import java.util.stream.Stream;
  * Implementazione XML di {@link SaveRepository}. Serializza l'intero
  * {@link GameState} (giocatore con inventario e diario degli indizi, flag e
  * capitolo corrente con le sue scene) in un file {@code <nome>.xml} nella cartella
- * dei salvataggi, di default sotto la home dell'utente. Il salvataggio e'
- * autosufficiente: il caricamento non dipende da altre componenti del gioco.
+ * dei salvataggi, di default la cartella {@code saves/} del progetto (esclusa da
+ * git). Il salvataggio e' autosufficiente: il caricamento non dipende da altre
+ * componenti del gioco.
  *
  * <p>La serializzazione e la deserializzazione delle collezioni del giocatore
  * (inventario, diario) sono isolate in metodi privati dedicati e simmetrici, in
@@ -43,15 +44,16 @@ import java.util.stream.Stream;
  */
 public class XmlSaveRepository implements SaveRepository {
 
-    private static final String CARTELLA_DEFAULT = "rpg126036-saves";
+    private static final String CARTELLA_DEFAULT = "saves";
 
     private final Path directory;
 
     /**
-     * Crea il repository nella cartella di default sotto la home dell'utente.
+     * Crea il repository nella cartella {@code saves/} del progetto (relativa alla
+     * directory di lavoro). I file di salvataggio sono esclusi dal versionamento.
      */
     public XmlSaveRepository() {
-        this(Path.of(System.getProperty("user.home"), CARTELLA_DEFAULT));
+        this(Path.of(CARTELLA_DEFAULT));
     }
 
     /**

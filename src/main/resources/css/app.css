@@ -50,6 +50,23 @@
     -fx-text-fill: #ffb4a8;
 }
 
+/* Testo e icona dentro le voci di menu (graphic-only): colore base e hover. */
+.menu-button .menu-label,
+.menu-button .menu-icon {
+    -fx-text-fill: #e5e2e1;
+}
+
+.menu-button .menu-icon {
+    -fx-font-size: 18px;
+    /* Micro-correzione: abbassa l'icona per centrarla otticamente nel pulsante. */
+    -fx-translate-y: 3px;
+}
+
+.menu-button:hover .menu-label,
+.menu-button:hover .menu-icon {
+    -fx-text-fill: #ffb4a8;
+}
+
 /* --- Font pixel art (VT323): applicato a un contenitore, eredita ai discendenti --- */
 .pixel-font {
     -fx-font-family: "VT323";
@@ -290,4 +307,31 @@
 .achievement-unlocked {
     -fx-font-size: 16px;
     -fx-text-fill: #2ecc71;
+}
+
+/* --- Schermata Carica partita: righe degli slot --- */
+.slot-card {
+    -fx-background-color: rgba(14, 14, 14, 0.82);
+    -fx-border-color: rgba(170, 137, 132, 0.45);
+    -fx-border-width: 1;
+    -fx-padding: 14 18 14 18;
+}
+
+.slot-card-empty {
+    -fx-border-color: rgba(170, 137, 132, 0.2);
+}
+
+.slot-name {
+    -fx-font-size: 24px;
+    -fx-text-fill: #ffb4a8;
+}
+
+.slot-detail {
+    -fx-font-size: 16px;
+    -fx-text-fill: #e5e2e1;
+}
+
+.slot-empty {
+    -fx-font-size: 18px;
+    -fx-text-fill: rgba(229, 226, 225, 0.45);
 }

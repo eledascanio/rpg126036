@@ -11,6 +11,7 @@ import it.unicam.cs.mpgc.rpg126036.persistence.Campaign;
 import it.unicam.cs.mpgc.rpg126036.persistence.GameOverCleanupListener;
 import it.unicam.cs.mpgc.rpg126036.persistence.PersistenceException;
 import it.unicam.cs.mpgc.rpg126036.persistence.SaveRepository;
+import it.unicam.cs.mpgc.rpg126036.persistence.SaveSlot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -70,6 +71,25 @@ public class GameSessionFactory {
     public Optional<GameSession> caricaPartita(String nomePersonaggio) {
         Objects.requireNonNull(nomePersonaggio, "Il nome non puo' essere nullo.");
         return repository.load(nomePersonaggio).map(this::riprendi);
+    }
+
+    /**
+     * @return i metadati degli slot di salvataggio esistenti (al massimo
+     *         {@link SaveRepository#MAX_SLOTS}), per popolare la schermata di carica
+     */
+    public List<SaveSlot> slotSalvati() {
+        return repository.listSlots();
+    }
+
+    /**
+     * Elimina lo slot del personaggio indicato.
+     *
+     * @param nomePersonaggio nome del personaggio/slot da eliminare (non nullo)
+     * @return {@code true} se lo slot esisteva ed e' stato eliminato
+     */
+    public boolean eliminaPartita(String nomePersonaggio) {
+        Objects.requireNonNull(nomePersonaggio, "Il nome non puo' essere nullo.");
+        return repository.delete(nomePersonaggio);
     }
 
     /**

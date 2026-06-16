@@ -5,6 +5,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.layout.Background;
@@ -13,6 +14,8 @@ import javafx.scene.layout.BackgroundPosition;
 import javafx.scene.layout.BackgroundRepeat;
 import javafx.scene.layout.BackgroundSize;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -25,8 +28,8 @@ import java.util.Objects;
  * velo scuro per la leggibilità, titolo, menu e riquadri decorativi.
  *
  * <p>"Nuova partita" porta alla {@link CharacterCreationView}; "Carica partita"
- * rimanda per ora a una schermata segnaposto; "Esci" chiude l'applicazione. Lo
- * stile è definito nel foglio {@code /css/app.css} tramite gli styleClass.</p>
+ * apre la {@link LoadGameView} con gli slot salvati; "Esci" chiude l'applicazione.
+ * Lo stile è definito nel foglio {@code /css/app.css} tramite gli styleClass.</p>
  */
 public class HomeView {
 
@@ -76,11 +79,11 @@ public class HomeView {
         intestazione.setAlignment(Pos.CENTER);
 
         VBox menu = new VBox(12,
-                voceMenu("Nuova Partita", e -> context.navigator()
+                voceMenu("Nuova Partita", "➜", e -> context.navigator()
                         .mostra(new CharacterCreationView(context).getRoot())),
-                voceMenu("Carica Partita", e -> context.navigator()
-                        .mostra(new PlaceholderView(context, "Carica partita — in costruzione").getRoot())),
-                voceMenu("Esci", e -> Platform.exit()));
+                voceMenu("Carica Partita", "💾", e -> context.navigator()
+                        .mostra(new LoadGameView(context).getRoot())),
+                voceMenu("Esci", "⏻", e -> Platform.exit()));
         menu.setAlignment(Pos.CENTER);
         menu.setMaxWidth(320);
 
@@ -93,10 +96,33 @@ public class HomeView {
         return contenuto;
     }
 
-    private Button voceMenu(String testo, javafx.event.EventHandler<javafx.event.ActionEvent> azione) {
-        Button pulsante = new Button(testo);
+    /**
+     * Costruisce una voce di menu con il testo a sinistra e una piccola icona
+     * all'estrema destra. Testo e azione restano invariati; l'icona è puramente
+     * decorativa (un simbolo Unicode) ed eredita il colore del pulsante.
+     */
+    private Button voceMenu(String testo, String icona,
+                            javafx.event.EventHandler<javafx.event.ActionEvent> azione) {
+        Label etichetta = new Label(testo);
+        etichetta.getStyleClass().add("menu-label");
+        Label simbolo = new Label(icona);
+        simbolo.getStyleClass().add("menu-icon");
+
+        Region spazio = new Region();
+        HBox.setHgrow(spazio, Priority.ALWAYS);
+        HBox contenuto = new HBox(etichetta, spazio, simbolo);
+        // Allineamento alla baseline del testo: così l'icona segue la linea della
+        // scritta (già centrata nel pulsante) invece di apparire spostata in alto.
+        contenuto.setAlignment(Pos.BASELINE_LEFT);
+
+        Button pulsante = new Button();
         pulsante.getStyleClass().add("menu-button");
         pulsante.setMaxWidth(Double.MAX_VALUE);
+        pulsante.setGraphic(contenuto);
+        pulsante.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        // Il contenuto riempie la larghezza del pulsante (meno i bordi/padding),
+        // così lo spazio elastico spinge l'icona contro il margine destro.
+        contenuto.prefWidthProperty().bind(pulsante.widthProperty().subtract(44));
         pulsante.setOnAction(azione);
         return pulsante;
     }
