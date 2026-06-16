@@ -147,8 +147,8 @@ public class CharacterCreationView {
         riquadroSprite.setAlignment(Pos.BOTTOM_CENTER);
 
         Label nome = new Label(classe.getNomeVisualizzato());
-        // Testo scuro: la card ha sfondo chiaro, quindi il bianco era illeggibile.
-        nome.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #1b2631;");
+        // Testo chiaro: la card ora ha sfondo scuro come i pulsanti del tema.
+        nome.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #e5e2e1;");
         // Nomi lunghi (es. "Rappresentante degli studenti") vanno a capo, centrati.
         nome.setWrapText(true);
         nome.setTextAlignment(TextAlignment.CENTER);

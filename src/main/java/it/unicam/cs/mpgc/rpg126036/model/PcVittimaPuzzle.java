@@ -29,7 +29,7 @@ public class PcVittimaPuzzle implements Puzzle {
     public static final int SOGLIA_STAT = 2;
 
     /** XP assegnati alla risoluzione, in qualunque modo avvenga. */
-    public static final int XP = 50;
+    public static final int XP = 30;
 
     /** Energia persa con la forza bruta. */
     public static final int COSTO_FORZA_BRUTA = 30;

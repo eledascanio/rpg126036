@@ -26,7 +26,7 @@ public class PortaLaboratorioPuzzle implements Puzzle {
     public static final int COSTO_FORZA_BRUTA = 40;
 
     /** XP assegnati alla risoluzione, in qualunque modo avvenga. */
-    public static final int XP = 40;
+    public static final int XP = 20;
 
     private static final String INDIZIO_INVESTIGAZIONE =
             "Noti che i tasti 1, 3, 6 sono visibilmente più consumati e scoloriti rispetto agli altri. "
