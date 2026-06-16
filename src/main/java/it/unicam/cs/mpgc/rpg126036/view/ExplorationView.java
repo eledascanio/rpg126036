@@ -92,7 +92,6 @@ public class ExplorationView implements GameListener {
     // resta ai piedi del personaggio (stile GdR 2D dall'alto).
     private static final double ALTEZZA_SPRITE = 60;
     private static final double VELOCITA = 3.0;
-    private static final double RAGGIO_ELEMENTO = 16;
     private static final double RAGGIO_INTERAZIONE = 52;
     // Altezza degli oggetti raccoglibili che hanno uno sprite dedicato.
     private static final double ALTEZZA_OGGETTO = 32;
@@ -2562,98 +2561,4 @@ public class ExplorationView implements GameListener {
     // Modello interno di un elemento interattivo sulla mappa
     // ----------------------------------------------------------------------
 
-    private enum TipoElemento {NPC, OGGETTO, ENIGMA, USCITA, PORTA}
-
-    /**
-     * Una scelta proposta al termine di un dialog box: l'etichetta del pulsante e
-     * l'azione eseguita alla selezione.
-     */
-    private record OpzioneDialogo(String etichetta, Runnable azione) {
-    }
-
-    /**
-     * Elemento interattivo posizionato sulla mappa: un nodo visivo (cerchio
-     * colorato con etichetta, oppure sprite immagine senza etichetta), un'azione
-     * di interazione e, per gli enigmi, il relativo {@link Puzzle}.
-     */
-    private static final class ElementoScena {
-
-        private final TipoElemento tipo;
-        private final String etichettaAzione;
-        private final Node nodo;
-        // Nome sotto l'elemento: presente per i cerchi, assente per gli sprite.
-        private final Label etichettaNodo;
-        private double x;
-        private double y;
-        private Runnable azione;
-        private Puzzle puzzle;
-        // Elementi a posizione fissa (le porte degli edifici) sono esclusi dalla
-        // disposizione automatica su slot/fasce e collocati esplicitamente.
-        private boolean posizioneFissa;
-
-        /** Elemento a cerchio colorato con il nome sotto (segnaposto generico). */
-        ElementoScena(TipoElemento tipo, String nome, String etichettaAzione, Color colore) {
-            this.tipo = tipo;
-            this.etichettaAzione = etichettaAzione;
-            Circle cerchio = new Circle(RAGGIO_ELEMENTO, colore);
-            cerchio.setStroke(Color.WHITE);
-            cerchio.setStrokeWidth(0);
-            this.nodo = cerchio;
-            this.etichettaNodo = new Label(nome);
-            this.etichettaNodo.getStyleClass().add("hud-text");
-            this.etichettaNodo.setTextAlignment(TextAlignment.CENTER);
-            this.etichettaNodo.setPrefWidth(140);
-            this.etichettaNodo.setAlignment(Pos.CENTER);
-        }
-
-        /** Elemento a sprite immagine, senza nome sotto. */
-        ElementoScena(TipoElemento tipo, String etichettaAzione, ImageView immagine) {
-            this.tipo = tipo;
-            this.etichettaAzione = etichettaAzione;
-            this.nodo = immagine;
-            this.etichettaNodo = null;
-        }
-
-        /** Elemento con un cerchio già configurato (es. il luccichio dell'Aula B), senza nome sotto. */
-        ElementoScena(TipoElemento tipo, String etichettaAzione, Circle cerchio) {
-            this.tipo = tipo;
-            this.etichettaAzione = etichettaAzione;
-            this.nodo = cerchio;
-            this.etichettaNodo = null;
-        }
-
-        void posiziona(double x, double y) {
-            this.x = x;
-            this.y = y;
-            if (nodo instanceof Circle cerchio) {
-                cerchio.setCenterX(x);
-                cerchio.setCenterY(y);
-            } else {
-                // Immagine: centrata sul punto (x, y).
-                nodo.setLayoutX(x - nodo.getBoundsInLocal().getWidth() / 2);
-                nodo.setLayoutY(y - nodo.getBoundsInLocal().getHeight() / 2);
-            }
-            if (etichettaNodo != null) {
-                etichettaNodo.setLayoutX(x - etichettaNodo.getPrefWidth() / 2);
-                etichettaNodo.setLayoutY(y + RAGGIO_ELEMENTO + 2);
-            }
-        }
-
-        /** Mostra o nasconde il nodo (e l'eventuale etichetta) dell'elemento. */
-        void setVisibile(boolean visibile) {
-            nodo.setVisible(visibile);
-            if (etichettaNodo != null) {
-                etichettaNodo.setVisible(visibile);
-            }
-        }
-
-        /** Evidenzia l'elemento vicino: bordo per i cerchi, bagliore per gli sprite. */
-        void evidenzia(boolean attivo) {
-            if (nodo instanceof Circle cerchio) {
-                cerchio.setStrokeWidth(attivo ? 3 : 0);
-            } else {
-                nodo.setEffect(attivo ? new Glow(0.9) : null);
-            }
-        }
-    }
 }
