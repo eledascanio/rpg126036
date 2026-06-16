@@ -163,6 +163,8 @@ public class ExplorationView implements GameListener {
     private final List<ElementoScena> elementi = new ArrayList<>();
     private final SceneEnvironment ambienti = new SceneEnvironment();
     private final List<Rectangle2D> muri = new ArrayList<>();
+    // Rilevamento collisioni col personaggio: condivide la lista dei muri qui sopra.
+    private final MappaCollisioni collisioni = new MappaCollisioni(muri, LATO_PERSONAGGIO);
     private final AnimationTimer ciclo;
     private double posX = (MAPPA_LARGHEZZA - LATO_PERSONAGGIO) / 2;
     private double posY = (MAPPA_ALTEZZA - LATO_PERSONAGGIO) / 2;
@@ -1252,13 +1254,13 @@ public class ExplorationView implements GameListener {
                 // lungo un muro invece di bloccarsi del tutto contro uno spigolo.
                 if (dx != 0) {
                     double nuovaX = clamp(posX + dx, MAPPA_LARGHEZZA - LATO_PERSONAGGIO);
-                    if (!collide(nuovaX, posY)) {
+                    if (!collisioni.collide(nuovaX, posY)) {
                         posX = nuovaX;
                     }
                 }
                 if (dy != 0) {
                     double nuovaY = clamp(posY + dy, MAPPA_ALTEZZA - LATO_PERSONAGGIO);
-                    if (!collide(posX, nuovaY)) {
+                    if (!collisioni.collide(posX, nuovaY)) {
                         posY = nuovaY;
                     }
                 }
@@ -1326,19 +1328,6 @@ public class ExplorationView implements GameListener {
 
     private double clamp(double valore, double massimo) {
         return Math.max(0, Math.min(valore, massimo));
-    }
-
-    /**
-     * @return {@code true} se il personaggio, posizionato in (x, y), si
-     *         sovrapporrebbe a un muro della scena
-     */
-    private boolean collide(double x, double y) {
-        for (Rectangle2D muro : muri) {
-            if (muro.intersects(x, y, LATO_PERSONAGGIO, LATO_PERSONAGGIO)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
