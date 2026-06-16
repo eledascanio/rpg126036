@@ -11,9 +11,7 @@ import it.unicam.cs.mpgc.rpg126036.engine.GameSummary;
 import it.unicam.cs.mpgc.rpg126036.interaction.InteractionResult;
 import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
-import it.unicam.cs.mpgc.rpg126036.model.Clue;
 import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
-import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
 import it.unicam.cs.mpgc.rpg126036.model.NpcCatalog;
@@ -39,7 +37,6 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.Glow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -1699,113 +1696,8 @@ public class ExplorationView implements GameListener {
      * (il diario), "Prove" (gli oggetti raccolti) e "Obiettivi" (i traguardi).
      */
     private void mostraInventario() {
-        Label titolo = new Label("Diario");
-        titolo.getStyleClass().add("overlay-title");
-
-        // Area scorrevole riempita in base alla sezione selezionata.
-        VBox contenuto = new VBox(14);
-        contenuto.setAlignment(Pos.TOP_LEFT);
-        ScrollPane scorri = new ScrollPane(contenuto);
-        scorri.setFitToWidth(true);
-        scorri.setPrefViewportHeight(280);
-        scorri.setMaxWidth(560);
-        scorri.getStyleClass().add("inventory-scroll");
-
-        Button indizi = new Button("Indizi");
-        Button prove = new Button("Prove");
-        Button obiettivi = new Button("Obiettivi");
-        List<Button> tab = List.of(indizi, prove, obiettivi);
-        for (Button b : tab) {
-            b.getStyleClass().add("game-button");
-            b.setFocusTraversable(false);
-        }
-        indizi.setOnAction(e -> selezionaSezione(tab, indizi, contenuto, this::riempiIndizi));
-        prove.setOnAction(e -> selezionaSezione(tab, prove, contenuto, this::riempiProve));
-        obiettivi.setOnAction(e -> selezionaSezione(tab, obiettivi, contenuto, this::riempiObiettivi));
-
-        HBox sezioni = new HBox(10, indizi, prove, obiettivi);
-        sezioni.setAlignment(Pos.CENTER);
-
-        Button chiudi = new Button("Chiudi");
-        chiudi.getStyleClass().add("game-button");
-        chiudi.setOnAction(e -> chiudiOverlay());
-
-        VBox pannello = new VBox(18, titolo, sezioni, scorri, chiudi);
-        pannello.setAlignment(Pos.CENTER);
-        pannello.setMaxWidth(620);
-        pannello.getStyleClass().add("pixel-font");
-
-        // All'apertura mostra la sezione "Indizi".
-        selezionaSezione(tab, indizi, contenuto, this::riempiIndizi);
+        VBox pannello = PannelloInventario.crea(stato, achievementManager, this::chiudiOverlay);
         mostraOverlay(velo(pannello), true);
-    }
-
-    /** Evidenzia il pulsante della sezione scelta e ne ricostruisce il contenuto. */
-    private void selezionaSezione(List<Button> tab, Button attivo, VBox contenuto,
-                                  Consumer<VBox> riempitore) {
-        tab.forEach(b -> b.getStyleClass().remove("tab-attivo"));
-        attivo.getStyleClass().add("tab-attivo");
-        contenuto.getChildren().clear();
-        riempitore.accept(contenuto);
-    }
-
-    /** Sezione "Indizi": le informazioni raccolte nel diario del giocatore. */
-    private void riempiIndizi(VBox contenuto) {
-        List<Clue> indizi = stato.getDiario().getIndizi();
-        if (indizi.isEmpty()) {
-            contenuto.getChildren().add(voceVuota("Nessun indizio raccolto, per ora."));
-            return;
-        }
-        indizi.forEach(c -> contenuto.getChildren().add(voce("• " + c.titolo(), c.testo())));
-    }
-
-    /** Sezione "Prove": gli oggetti fisici raccolti nell'inventario. */
-    private void riempiProve(VBox contenuto) {
-        List<Item> prove = stato.getInventario().getOggetti();
-        if (prove.isEmpty()) {
-            contenuto.getChildren().add(voceVuota("Nessuna prova raccolta, per ora."));
-            return;
-        }
-        prove.forEach(i -> contenuto.getChildren().add(voce("• " + i.nome(), i.descrizione())));
-    }
-
-    /**
-     * Sezione "Obiettivi": mostra solo i traguardi già sbloccati. Quelli ancora da
-     * ottenere restano invisibili, così non ne svelano in anticipo l'esistenza.
-     */
-    private void riempiObiettivi(VBox contenuto) {
-        List<Achievement> sbloccati = achievementManager.getSbloccati();
-        if (sbloccati.isEmpty()) {
-            contenuto.getChildren().add(voceVuota("Nessun obiettivo sbloccato, per ora."));
-            return;
-        }
-        for (Achievement a : sbloccati) {
-            Node voce = voce("🏆 " + a.titolo(), a.descrizione());
-            Label esito = new Label("Sbloccato");
-            esito.getStyleClass().add("achievement-unlocked");
-            ((VBox) voce).getChildren().add(esito);
-            contenuto.getChildren().add(voce);
-        }
-    }
-
-    /** Voce dell'inventario: titolo in evidenza e testo descrittivo a capo. */
-    private Node voce(String titolo, String testo) {
-        Label t = new Label(titolo);
-        t.getStyleClass().add("inventory-entry-title");
-        Label d = new Label(testo);
-        d.getStyleClass().add("inventory-entry-text");
-        d.setWrapText(true);
-        d.setMaxWidth(520);
-        return new VBox(2, t, d);
-    }
-
-    /** Messaggio segnaposto per una sezione ancora vuota. */
-    private Node voceVuota(String messaggio) {
-        Label l = new Label(messaggio);
-        l.getStyleClass().add("inventory-entry-text");
-        l.setWrapText(true);
-        l.setMaxWidth(520);
-        return l;
     }
 
     /**
