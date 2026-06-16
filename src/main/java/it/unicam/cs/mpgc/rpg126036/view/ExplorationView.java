@@ -17,6 +17,7 @@ import it.unicam.cs.mpgc.rpg126036.model.Item;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
 import it.unicam.cs.mpgc.rpg126036.model.NpcCatalog;
+import it.unicam.cs.mpgc.rpg126036.model.PcVittimaPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
 import it.unicam.cs.mpgc.rpg126036.model.PuzzleOutcome;
@@ -99,13 +100,8 @@ public class ExplorationView implements GameListener {
     private static final double ALTEZZA_NPC = 58;
     // Energia consumata a ogni dialogo con un NPC (regola di gioco).
     private static final int COSTO_ENERGIA_DIALOGO = 10;
-    // Energia persa forzando il PC della vittima (via di riserva, sempre disponibile).
-    private static final int COSTO_FORZA_BRUTA_PC = 30;
-    // XP guadagnati sbloccando il PC della vittima, in qualunque modo avvenga.
-    private static final int PC_XP = 30;
-    // Numero binario da convertire (enigma del PC, via Investigazione) e sua soluzione.
-    private static final String PC_BINARIO = "11010";
-    private static final String PC_SOLUZIONE = "26";
+    // Le regole numeriche dell'enigma del PC della vittima (binario, soluzione, costi,
+    // XP) vivono in PcVittimaPuzzle: la vista vi applica gli effetti, non li ridefinisce.
     // Posizioni delle porte degli edifici sul cortile (frazioni della mappa): Polo A
     // a sinistra, Polo B a destra, alla stessa altezza sulle facciate.
     private static final double CORTILE_PORTA_A_X = 0.20;
@@ -182,6 +178,9 @@ public class ExplorationView implements GameListener {
     // sempre inaccessibile. Nulle nelle scene che non le prevedono.
     private ElementoScena portaPoloA;
     private ElementoScena portaPoloB;
+    // Enigma del PC della vittima (capitolo 2): detiene le regole (binario, costi, XP)
+    // e lo stato di risoluzione. La vista ne applica gli effetti invece di duplicarli.
+    private PcVittimaPuzzle pcPuzzle;
     // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
     // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
     private boolean pensieroIndagineMostrato;
@@ -533,7 +532,7 @@ public class ExplorationView implements GameListener {
         // Il PC della vittima è uno dei sei computer del laboratorio: il PC giusto
         // apre direttamente la mail, gli altri cinque sono "PC sbagliati".
         if ("pc_vittima".equals(idEnigma)) {
-            aggiungiPcAula();
+            aggiungiPcAula((PcVittimaPuzzle) puzzle);
             return;
         }
         ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "Enigma", "Esamina l'enigma", Color.web("#9b59b6"));
@@ -549,7 +548,10 @@ public class ExplorationView implements GameListener {
      * Sui restanti cinque si ottiene "PC sbagliato" e una penalità di energia. Sono
      * a posizione fissa, in corrispondenza dei monitor.
      */
-    private void aggiungiPcAula() {
+    private void aggiungiPcAula(PcVittimaPuzzle puzzle) {
+        // L'enigma del PC porta con sé le proprie regole: lo conserviamo per applicarne
+        // gli effetti (energia, XP) nelle varie vie di risoluzione.
+        this.pcPuzzle = puzzle;
         // Nuova disposizione dei PC: azzera la traccia degli errori per il traguardo
         // "Cercatore d'oro" (PC giusto al primissimo click).
         pcSbagliatoToccato = false;
@@ -579,7 +581,8 @@ public class ExplorationView implements GameListener {
      *     <li>solo Intuizione &ge; 1: ricerca del foglietto con la password;</li>
      *     <li>nessuna: solo forza bruta.</li>
      * </ul>
-     * In ogni caso lo sblocco assegna {@value #PC_XP} XP (in {@link #pcVittimaRisolto}).
+     * In ogni caso lo sblocco assegna {@value PcVittimaPuzzle#XP} XP, applicati dalla
+     * via di risoluzione del {@link PcVittimaPuzzle}.
      */
     private void apriPcVittima(ElementoScena elemento) {
         // Traguardo "Cercatore d'oro": il PC di Antonio è il primissimo computer
@@ -595,6 +598,8 @@ public class ExplorationView implements GameListener {
     private void procediAperturaPc(ElementoScena elemento) {
         Player player = stato.getPlayer();
         if (stato.hasFlag(ContentResolver.FLAG_ASSISTENTE)) {
+            pcPuzzle.usaPasswordAssistente(player);
+            aggiornaHud();
             mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
             return;
         }
@@ -634,14 +639,13 @@ public class ExplorationView implements GameListener {
     }
 
     /**
-     * Enigma binario (via Investigazione): converti {@value #PC_BINARIO} in decimale
-     * ({@value #PC_SOLUZIONE}). Ogni tentativo errato costa {@link #COSTO_ENERGIA_DIALOGO}
-     * di energia; resta disponibile la forza bruta.
+     * Enigma binario (via Investigazione): converti il binario {@link PcVittimaPuzzle#BINARIO}
+     * in decimale. La valutazione del tentativo (sblocco o penalita' di energia) e' delegata
+     * a {@link PcVittimaPuzzle#tenta(Player, String)}; resta disponibile la forza bruta.
      */
     private void mostraEnigmaBinario(ElementoScena elemento) {
         Player player = stato.getPlayer();
-        VBox pannello = pannelloPc("Il terminale è protetto. Converti in decimale il numero binario "
-                + PC_BINARIO + " per ricavare la password.");
+        VBox pannello = pannelloPc(pcPuzzle.testoEnigmaBinario());
 
         Label esito = new Label();
         esito.getStyleClass().add("overlay-subtitle");
@@ -650,16 +654,16 @@ public class ExplorationView implements GameListener {
         esito.setTextAlignment(TextAlignment.CENTER);
 
         VBox tastierino = creaPannelloTastierino(2, codice -> {
-            if (PC_SOLUZIONE.equals(codice)) {
+            PuzzleOutcome risultato = pcPuzzle.tenta(player, codice);
+            aggiornaHud();
+            if (risultato.risolto()) {
                 mostraDialogo("", "Hai inserito la password.", () -> pcVittimaRisolto(elemento), List.of());
                 return true;
             }
-            player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
-            aggiornaHud();
             if (engine.verificaGameOver()) {
                 return true;
             }
-            esito.setText("Conversione errata. Riprova. (-" + COSTO_ENERGIA_DIALOGO + " energia)");
+            esito.setText(risultato.messaggio());
             return false;
         });
 
@@ -672,9 +676,9 @@ public class ExplorationView implements GameListener {
      * password sotto la tastiera. Nessun costo di energia; lo sblocco è immediato.
      */
     private void cercaIndiziPc(ElementoScena elemento) {
-        mostraDialogo("", "Esamini attentamente la postazione. Sotto la tastiera noti un minuscolo "
-                + "pezzo di carta strappato. C'è scritto qualcosa a matita: è la password personale "
-                + "della vittima!", () -> pcVittimaRisolto(elemento), List.of());
+        PuzzleOutcome risultato = pcPuzzle.cercaIndizi(stato.getPlayer());
+        aggiornaHud();
+        mostraDialogo("", risultato.messaggio(), () -> pcVittimaRisolto(elemento), List.of());
     }
 
     /**
@@ -725,7 +729,7 @@ public class ExplorationView implements GameListener {
         Button forza = new Button("Forza bruta (perdi energia)");
         forza.getStyleClass().add("game-button");
         forza.setOnAction(e -> {
-            stato.getPlayer().riduciEnergia(COSTO_FORZA_BRUTA_PC);
+            pcPuzzle.forzaBruta(stato.getPlayer());
             aggiornaHud();
             if (engine.verificaGameOver()) {
                 return;
@@ -1868,8 +1872,8 @@ public class ExplorationView implements GameListener {
      * all'aula con personaggio e NPC invariati.
      */
     private void pcVittimaRisolto(ElementoScena elemento) {
-        // Sbloccare il PC assegna sempre gli XP, qualunque via sia stata usata.
-        stato.getPlayer().aggiungiXp(PC_XP);
+        // Gli XP dello sblocco sono già stati assegnati dalla via di risoluzione
+        // (PcVittimaPuzzle), qualunque essa sia stata.
         rimuoviElemento(elemento);
         aggiornaHud();
         if (engine.verificaGameOver()) {

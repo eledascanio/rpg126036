@@ -2,8 +2,6 @@ package it.unicam.cs.mpgc.rpg126036.model;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Random;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,16 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifica l'enigma del PC della vittima nelle sue diverse vie di risoluzione.
  */
 class PcVittimaPuzzleTest {
-
-    /** Generatore deterministico: il mini-gioco usera' il numero 32 + 5 = 37. */
-    private static Random rngFisso() {
-        return new Random() {
-            @Override
-            public int nextInt(int bound) {
-                return 5;
-            }
-        };
-    }
 
     private Player giocatore() {
         return new Player("Eroe", CharacterClass.STUDENTE_MODELLO);
@@ -66,15 +54,28 @@ class PcVittimaPuzzleTest {
 
     @Test
     void laViaInvestigazioneSiRisolveConLaConversioneCorretta() {
-        PcVittimaPuzzle pc = new PcVittimaPuzzle(false, rngFisso());
+        PcVittimaPuzzle pc = new PcVittimaPuzzle(false);
         Player player = giocatore();
         player.aumentaStatistica(StatType.INVESTIGAZIONE, PcVittimaPuzzle.SOGLIA_STAT);
 
-        pc.analizzaTerminale(player);
-        PuzzleOutcome esito = pc.tenta(player, "37");
+        PuzzleOutcome esito = pc.tenta(player, PcVittimaPuzzle.SOLUZIONE);
 
         assertTrue(esito.risolto());
         assertEquals(PcVittimaPuzzle.XP, player.getXp());
+    }
+
+    @Test
+    void laConversioneErrataCostaEnergiaSenzaRisolvere() {
+        PcVittimaPuzzle pc = new PcVittimaPuzzle(false);
+        Player player = giocatore();
+        int energiaIniziale = player.getEnergia();
+
+        PuzzleOutcome esito = pc.tenta(player, "00");
+
+        assertFalse(esito.risolto());
+        assertEquals(PcVittimaPuzzle.COSTO_TENTATIVO_ERRATO, esito.energiaConsumata());
+        assertEquals(energiaIniziale - PcVittimaPuzzle.COSTO_TENTATIVO_ERRATO, player.getEnergia());
+        assertEquals(0, player.getXp());
     }
 
     @Test
