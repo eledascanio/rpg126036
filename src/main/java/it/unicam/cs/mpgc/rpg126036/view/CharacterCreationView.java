@@ -2,8 +2,11 @@ package it.unicam.cs.mpgc.rpg126036.view;
 
 import it.unicam.cs.mpgc.rpg126036.app.GameSession;
 import it.unicam.cs.mpgc.rpg126036.model.CharacterClass;
+import it.unicam.cs.mpgc.rpg126036.persistence.SaveRepository;
+import it.unicam.cs.mpgc.rpg126036.persistence.SaveSlot;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -17,12 +20,14 @@ import javafx.scene.layout.BackgroundPosition;
 import javafx.scene.layout.BackgroundRepeat;
 import javafx.scene.layout.BackgroundSize;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.TextAlignment;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -41,6 +46,8 @@ public class CharacterCreationView {
 
     private final AppContext context;
     private final StackPane root;
+    // Overlay di scelta dello slot da sovrascrivere (quando i salvataggi sono pieni).
+    private Node overlayCorrente;
 
     public CharacterCreationView(AppContext context) {
         this.context = Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
@@ -178,12 +185,118 @@ public class CharacterCreationView {
     }
 
     /**
-     * Avvia una nuova partita con il nome e la classe scelti e apre la sequenza
-     * introduttiva (monologo, cartello del capitolo, esplorazione).
+     * Avvia una nuova partita con il nome e la classe scelti. Se i tre slot di
+     * salvataggio sono pieni e il nome non corrisponde a un salvataggio esistente,
+     * l'autosalvataggio di fine capitolo non avrebbe spazio (vedi
+     * {@link it.unicam.cs.mpgc.rpg126036.app.GameSessionFactory#slotPieni()}): si
+     * chiede prima quale slot sovrascrivere, poi si procede.
      */
     private void avviaPartita(String nome, CharacterClass classe) {
+        if (context.sessionFactory().slotPieni() && !context.sessionFactory().esisteSlot(nome)) {
+            chiediSlotDaLiberare(nome, classe);
+        } else {
+            creaEAvvia(nome, classe);
+        }
+    }
+
+    /**
+     * Crea la partita e apre la sequenza introduttiva (monologo, cartello del
+     * capitolo, esplorazione).
+     */
+    private void creaEAvvia(String nome, CharacterClass classe) {
         GameSession sessione = context.sessionFactory().nuovaPartita(nome, classe);
         context.navigator().mostra(new IntroView(context, sessione).getRoot());
+    }
+
+    /**
+     * Mostra l'overlay che, con gli slot pieni, chiede quale salvataggio
+     * sovrascrivere: ogni slot esistente offre un pulsante che lo elimina e avvia
+     * subito la nuova partita. "Annulla" chiude l'overlay senza modifiche.
+     */
+    private void chiediSlotDaLiberare(String nome, CharacterClass classe) {
+        Label titolo = new Label("Slot di salvataggio pieni");
+        titolo.getStyleClass().add("scene-title");
+        titolo.setTextAlignment(TextAlignment.CENTER);
+        Label sottotitolo = new Label("Hai gia' " + SaveRepository.MAX_SLOTS
+                + " partite salvate. Scegli quale sovrascrivere per iniziare la nuova partita.");
+        sottotitolo.getStyleClass().add("overlay-subtitle");
+        sottotitolo.setWrapText(true);
+        sottotitolo.setMaxWidth(460);
+        sottotitolo.setTextAlignment(TextAlignment.CENTER);
+
+        VBox lista = new VBox(12);
+        lista.setAlignment(Pos.CENTER);
+        List<SaveSlot> slot = context.sessionFactory().slotSalvati();
+        for (SaveSlot s : slot) {
+            lista.getChildren().add(rigaSlotDaLiberare(s, nome, classe));
+        }
+
+        Button annulla = new Button("Annulla");
+        annulla.getStyleClass().add("game-button");
+        annulla.setOnAction(e -> chiudiOverlay());
+
+        VBox pannello = new VBox(20, titolo, sottotitolo, lista, annulla);
+        pannello.setAlignment(Pos.CENTER);
+        pannello.setMaxWidth(560);
+        pannello.getStyleClass().add("pixel-font");
+
+        StackPane velo = new StackPane(pannello);
+        velo.getStyleClass().add("overlay-veil");
+        mostraOverlay(velo);
+    }
+
+    /** Riga di uno slot sovrascrivibile: nome, classe e capitolo, col pulsante "Sovrascrivi". */
+    private Node rigaSlotDaLiberare(SaveSlot slot, String nome, CharacterClass classe) {
+        Label info = new Label(slot.nomePersonaggio() + "  ·  " + nomeClasse(slot.classe())
+                + "  ·  " + etichettaCapitolo(slot.idCapitolo()));
+        info.getStyleClass().add("slot-name");
+
+        Button sovrascrivi = new Button("Sovrascrivi");
+        sovrascrivi.getStyleClass().add("game-button");
+        sovrascrivi.setOnAction(e -> {
+            context.sessionFactory().eliminaPartita(slot.nomePersonaggio());
+            chiudiOverlay();
+            creaEAvvia(nome, classe);
+        });
+
+        Region spazio = new Region();
+        HBox.setHgrow(spazio, Priority.ALWAYS);
+        HBox riga = new HBox(12, info, spazio, sovrascrivi);
+        riga.setAlignment(Pos.CENTER_LEFT);
+        riga.getStyleClass().add("slot-card");
+        riga.setMaxWidth(500);
+        return riga;
+    }
+
+    private void mostraOverlay(Node overlay) {
+        chiudiOverlay();
+        overlayCorrente = overlay;
+        root.getChildren().add(overlay);
+    }
+
+    private void chiudiOverlay() {
+        if (overlayCorrente != null) {
+            root.getChildren().remove(overlayCorrente);
+            overlayCorrente = null;
+        }
+    }
+
+    /** @return il nome leggibile della classe, o l'id grezzo se non riconosciuto */
+    private String nomeClasse(String enumName) {
+        try {
+            return CharacterClass.valueOf(enumName).getNomeVisualizzato();
+        } catch (IllegalArgumentException e) {
+            return enumName;
+        }
+    }
+
+    /** @return "Capitolo N" ricavato dall'id (es. "capitolo2" → "Capitolo 2") */
+    private String etichettaCapitolo(String idCapitolo) {
+        if (idCapitolo == null || idCapitolo.isBlank()) {
+            return "—";
+        }
+        String numero = idCapitolo.replaceAll("\\D+", "");
+        return numero.isBlank() ? idCapitolo : "Capitolo " + numero;
     }
 
     /**

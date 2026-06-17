@@ -93,6 +93,22 @@ public class GameSessionFactory {
     }
 
     /**
+     * @return {@code true} se tutti gli slot di salvataggio sono occupati
+     */
+    public boolean slotPieni() {
+        return repository.isFull();
+    }
+
+    /**
+     * @param nomePersonaggio nome del personaggio/slot (non nullo)
+     * @return {@code true} se esiste gia' uno slot per quel personaggio
+     */
+    public boolean esisteSlot(String nomePersonaggio) {
+        Objects.requireNonNull(nomePersonaggio, "Il nome non puo' essere nullo.");
+        return repository.exists(nomePersonaggio);
+    }
+
+    /**
      * Riconcilia lo stato salvato con la campagna: individua il capitolo corrente
      * nella sequenza e ne usa la versione con il progresso salvato, poi assembla la
      * sessione a partire da quel capitolo.
