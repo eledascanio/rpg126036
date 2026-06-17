@@ -36,7 +36,7 @@ import java.util.Objects;
  */
 final class PcVittima {
 
-    private final ExplorationView view;
+    private final RegiaEsplorazione view;
     private final GameState stato;
     private final GameEngine engine;
     private final AchievementManager achievementManager;
@@ -58,7 +58,7 @@ final class PcVittima {
      * @param larghezzaMappa     larghezza della mappa, per posizionare i PC
      * @param altezzaMappa       altezza della mappa, per posizionare i PC
      */
-    PcVittima(ExplorationView view, GameState stato, GameEngine engine,
+    PcVittima(RegiaEsplorazione view, GameState stato, GameEngine engine,
               AchievementManager achievementManager, double larghezzaMappa, double altezzaMappa) {
         this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
@@ -276,7 +276,7 @@ final class PcVittima {
         // Un PC sbagliato esclude definitivamente il traguardo "Cercatore d'oro".
         pcSbagliatoToccato = true;
         Player player = stato.getPlayer();
-        player.riduciEnergia(ExplorationView.COSTO_ENERGIA_DIALOGO);
+        player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;

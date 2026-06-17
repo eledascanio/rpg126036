@@ -32,7 +32,7 @@ final class DialoghiNpc {
     // XP guadagnati convincendo l'addetto ad aprire la porta dell'Aula B.
     private static final int ADDETTO_XP = 60;
 
-    private final ExplorationView view;
+    private final RegiaEsplorazione view;
     private final GameState stato;
     private final GameEngine engine;
     private final ContentResolver resolver;
@@ -43,7 +43,7 @@ final class DialoghiNpc {
      * @param engine   il motore di gioco (indizi, game over)
      * @param resolver il risolutore dei contenuti (indizi associati agli NPC)
      */
-    DialoghiNpc(ExplorationView view, GameState stato, GameEngine engine, ContentResolver resolver) {
+    DialoghiNpc(RegiaEsplorazione view, GameState stato, GameEngine engine, ContentResolver resolver) {
         this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
@@ -54,7 +54,7 @@ final class DialoghiNpc {
     void conNpc(Npc npc) {
         Player player = stato.getPlayer();
         // Parlare con un NPC costa energia; se si esaurisce, scatta il game over.
-        player.riduciEnergia(ExplorationView.COSTO_ENERGIA_DIALOGO);
+        player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
@@ -80,7 +80,7 @@ final class DialoghiNpc {
      */
     void conTecnico(Npc npc) {
         Player player = stato.getPlayer();
-        player.riduciEnergia(ExplorationView.COSTO_ENERGIA_DIALOGO);
+        player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
@@ -133,7 +133,7 @@ final class DialoghiNpc {
      * L'addetto respinge tutti; con Carisma &ge; 2 il giocatore lo convince in una
      * sequenza di battute (rifiuto, replica, accettazione): l'addetto apre la porta
      * laterale dell'Aula B, assegna {@value #ADDETTO_XP} XP e rivela l'indizio. Sotto
-     * soglia il rifiuto costa {@link ExplorationView#COSTO_ENERGIA_DIALOGO} di energia.
+     * soglia il rifiuto costa {@link RegiaEsplorazione#COSTO_ENERGIA_DIALOGO} di energia.
      * Una volta aperta la porta, ulteriori interazioni si limitano a sollecitare.
      */
     void conAddetto(Npc npc) {
@@ -151,7 +151,7 @@ final class DialoghiNpc {
             return;
         }
         // Carisma insufficiente: rifiuto secco, a costo di energia.
-        player.riduciEnergia(ExplorationView.COSTO_ENERGIA_DIALOGO);
+        player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
@@ -178,14 +178,14 @@ final class DialoghiNpc {
 
     /**
      * Interazione su misura con lo studente ubriaco. Come ogni dialogo costa
-     * {@link ExplorationView#COSTO_ENERGIA_DIALOGO} di energia; se il giocatore ha
+     * {@link RegiaEsplorazione#COSTO_ENERGIA_DIALOGO} di energia; se il giocatore ha
      * Carisma &gt; 0 (ha scelto il rappresentante) l'NPC lo riconosce e gli offre un
      * sorso, restituendo l'energia appena spesa quando il giocatore passa la battuta
      * (premendo E). In ogni caso prosegue con la battuta comune a scelte.
      */
     void conStudenteUbriaco(Npc npc) {
         Player player = stato.getPlayer();
-        player.riduciEnergia(ExplorationView.COSTO_ENERGIA_DIALOGO);
+        player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
@@ -195,7 +195,7 @@ final class DialoghiNpc {
                     + "alla salute di Antonio, povero ragazzo.";
             // Al passaggio della battuta si recupera l'energia spesa per parlargli.
             view.mostraDialogo(npc.getNome(), saluto, () -> {
-                player.ripristinaEnergia(ExplorationView.COSTO_ENERGIA_DIALOGO);
+                player.ripristinaEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
                 view.aggiornaHud();
                 mostraUbriacoConScelte(npc);
             }, List.of());

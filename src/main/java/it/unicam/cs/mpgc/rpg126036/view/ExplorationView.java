@@ -66,7 +66,7 @@ import java.util.function.Consumer;
  * dialogo, la raccolta, gli enigmi, l'upgrade di statistica, la pausa, la fine del
  * capitolo, il game over e il completamento.</p>
  */
-public class ExplorationView implements GameListener {
+public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     private static final double MAPPA_LARGHEZZA = 860;
     private static final double MAPPA_ALTEZZA = 440;
@@ -80,9 +80,6 @@ public class ExplorationView implements GameListener {
     private static final double ALTEZZA_OGGETTO = 32;
     // Altezza degli NPC con sprite dedicato (poco meno del personaggio giocante).
     private static final double ALTEZZA_NPC = 58;
-    // Energia consumata a ogni dialogo con un NPC (regola di gioco). Condivisa con i
-    // dialoghi NPC estratti (DialoghiNpc) e con la penalità del PC sbagliato.
-    static final int COSTO_ENERGIA_DIALOGO = 10;
     // Le regole numeriche dell'enigma del PC della vittima (binario, soluzione, costi,
     // XP) vivono in PcVittimaPuzzle: la vista vi applica gli effetti, non li ridefinisce.
     // Posizione dell'addetto alle pulizie nel cortile (capitolo 3): davanti al Polo B,
@@ -501,7 +498,8 @@ public class ExplorationView implements GameListener {
      * appena il giocatore possiede sia la chiave sia l'indizio su Alex Kaur (in
      * qualunque ordine abbia compiuto le due azioni).
      */
-    void forsePensieroIndagine() {
+    @Override
+    public void forsePensieroIndagine() {
         if (!pensieroIndagineMostrato && porte.isEnigmaPortaSbloccato()) {
             pensieroIndagineMostrato = true;
             mostraDialogo(stato.getPlayer().getNome(),
@@ -518,7 +516,8 @@ public class ExplorationView implements GameListener {
         registra(e);
     }
 
-    void registra(ElementoScena e) {
+    @Override
+    public void registra(ElementoScena e) {
         elementi.add(e);
         mappa.getChildren().add(e.nodo);
         if (e.etichettaNodo != null) {
@@ -575,7 +574,8 @@ public class ExplorationView implements GameListener {
      * @return {@code true} se la scena è l'Aula B del capitolo 3, esplorabile al buio
      *         con l'effetto torcia e gli indizi da trovare
      */
-    boolean isAulaBCapitolo3(Scene scena) {
+    @Override
+    public boolean isAulaBCapitolo3(Scene scena) {
         return "aula_b".equals(scena.getId())
                 && "capitolo3".equals(engine.getCapitoloCorrente().getId());
     }
@@ -589,20 +589,23 @@ public class ExplorationView implements GameListener {
      * luce lo rende trasparente solo attorno al giocatore, lasciando il resto
      * dell'aula al buio. Invocato dalla trama dell'{@link AulaB}.
      */
-    void aggiungiTorcia() {
+    @Override
+    public void aggiungiTorcia() {
         torcia = new EffettoTorcia(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         mappa.getChildren().add(torcia.nodo());
     }
 
     /** Ricalcola il foro di luce della torcia centrandolo sul giocatore. */
-    void aggiornaTorcia() {
+    @Override
+    public void aggiornaTorcia() {
         if (torcia != null) {
             torcia.centraSu(posX + LATO_PERSONAGGIO / 2.0, posY + LATO_PERSONAGGIO / 2.0);
         }
     }
 
     /** Registra un'animazione di scena, da fermare alla ricostruzione della stessa. */
-    void registraAnimazione(Timeline animazione) {
+    @Override
+    public void registraAnimazione(Timeline animazione) {
         animazioniScena.add(animazione);
     }
 
@@ -853,7 +856,8 @@ public class ExplorationView implements GameListener {
         mostraMessaggio("Oggetto", testoRaccolta, dopoMessaggio);
     }
 
-    void usaUscita(Transition transizione) {
+    @Override
+    public void usaUscita(Transition transizione) {
         if (haEnigmaNonRisolto()) {
             mostraMessaggio("Passaggio bloccato",
                     "Un enigma sbarra ancora la strada: risolvilo prima di proseguire.");
@@ -1001,7 +1005,8 @@ public class ExplorationView implements GameListener {
      *
      * @param idScena id della scena di servizio verso cui avanzare
      */
-    void avanzaSenzaRicostruire(String idScena) {
+    @Override
+    public void avanzaSenzaRicostruire(String idScena) {
         sopprimiRicostruzioneScena = true;
         engine.avanza(idScena);
         sopprimiRicostruzioneScena = false;
@@ -1013,7 +1018,8 @@ public class ExplorationView implements GameListener {
      * da scrivere). Un clic o il tasto E completano subito il testo se è in corso,
      * altrimenti chiudono il dialogo; lo stesso fa ESC.
      */
-    void mostraDialogo(String nome, String testo) {
+    @Override
+    public void mostraDialogo(String nome, String testo) {
         mostraDialogo(nome, testo, this::chiudiOverlay, List.of());
     }
 
@@ -1028,7 +1034,8 @@ public class ExplorationView implements GameListener {
      * @param alTermine azione eseguita al termine quando non ci sono scelte
      * @param opzioni  le scelte proposte al termine (eventualmente vuote)
      */
-    void mostraDialogo(String nome, String testo, Runnable alTermine, List<OpzioneDialogo> opzioni) {
+    @Override
+    public void mostraDialogo(String nome, String testo, Runnable alTermine, List<OpzioneDialogo> opzioni) {
         DialogoBox.Sessione dialogo = DialogoBox.crea(root, nome, testo, alTermine, opzioni);
         // I campi vanno impostati dopo mostraOverlay, che azzera lo stato precedente.
         mostraOverlay(dialogo.nodo(), true);
@@ -1037,7 +1044,8 @@ public class ExplorationView implements GameListener {
         dialogo.avvia();
     }
 
-    void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
+    @Override
+    public void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
         if (puzzle.isRisolto()) {
             mostraMessaggio("Enigma", "Hai già superato questo enigma.");
             return;
@@ -1147,7 +1155,8 @@ public class ExplorationView implements GameListener {
         }
     }
 
-    void mostraSceltaUpgrade(String titolo, String sottotitolo, Consumer<StatType> azione) {
+    @Override
+    public void mostraSceltaUpgrade(String titolo, String sottotitolo, Consumer<StatType> azione) {
         Label etichettaTitolo = new Label(titolo);
         etichettaTitolo.getStyleClass().add("scene-title");
         Label etichettaSub = new Label(sottotitolo);
@@ -1184,7 +1193,8 @@ public class ExplorationView implements GameListener {
      *
      * @param dopo azione da eseguire una volta gestiti gli eventuali potenziamenti
      */
-    void mostraPotenziamentoSeDovuto(Runnable dopo) {
+    @Override
+    public void mostraPotenziamentoSeDovuto(Runnable dopo) {
         if (stato.getPlayer().getXp() >= Player.COSTO_XP_POTENZIAMENTO) {
             mostraSceltaUpgrade("Potenziamento disponibile",
                     "Hai raggiunto 100 XP! Scegli una statistica da potenziare:",
@@ -1235,13 +1245,15 @@ public class ExplorationView implements GameListener {
         mostraOverlay(velo(pannello), false);
     }
 
-    StackPane velo(Node contenuto) {
+    @Override
+    public StackPane velo(Node contenuto) {
         StackPane overlay = new StackPane(contenuto);
         overlay.getStyleClass().add("overlay-veil");
         return overlay;
     }
 
-    void mostraOverlay(Node velo, boolean chiudibile) {
+    @Override
+    public void mostraOverlay(Node velo, boolean chiudibile) {
         chiudiOverlay();
         overlayCorrente = velo;
         overlayChiudibile = chiudibile;
@@ -1258,7 +1270,8 @@ public class ExplorationView implements GameListener {
      *
      * @param dopo azione da eseguire dopo l'eventuale annuncio (può essere nulla)
      */
-    void annunciaTraguardoSePresente(Runnable dopo) {
+    @Override
+    public void annunciaTraguardoSePresente(Runnable dopo) {
         if (traguardoPendente == null) {
             if (dopo != null) {
                 dopo.run();
@@ -1275,7 +1288,8 @@ public class ExplorationView implements GameListener {
         }, List.of());
     }
 
-    void chiudiOverlay() {
+    @Override
+    public void chiudiOverlay() {
         // Ferma l'eventuale dialogo in corso prima di rimuovere il pannello.
         if (dialogoMacchina != null) {
             dialogoMacchina.stop();
@@ -1292,7 +1306,8 @@ public class ExplorationView implements GameListener {
     // Reazione agli eventi del motore
     // ----------------------------------------------------------------------
 
-    void aggiornaHud() {
+    @Override
+    public void aggiornaHud() {
         Player player = stato.getPlayer();
         int energia = engine.getEnergia();
         barraEnergia.setProgress((double) energia / Player.ENERGIA_MASSIMA);
@@ -1419,7 +1434,8 @@ public class ExplorationView implements GameListener {
     // Utilita'
     // ----------------------------------------------------------------------
 
-    void rimuoviElemento(ElementoScena elemento) {
+    @Override
+    public void rimuoviElemento(ElementoScena elemento) {
         elementi.remove(elemento);
         mappa.getChildren().remove(elemento.nodo);
         if (elemento.etichettaNodo != null) {

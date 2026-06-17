@@ -63,7 +63,7 @@ final class AulaB {
     private static final String PENSIERO_PERQUISIZIONE =
             "Dietro c'è un'incisione: E.M. Ma sono le stesse iniziali della mail!";
 
-    private final ExplorationView view;
+    private final RegiaEsplorazione view;
     private final GameState stato;
     private final GameEngine engine;
     private final double larghezzaMappa;
@@ -79,7 +79,7 @@ final class AulaB {
      * @param larghezzaMappa larghezza della mappa, per posizionare gli elementi
      * @param altezzaMappa   altezza della mappa, per posizionare gli elementi
      */
-    AulaB(ExplorationView view, GameState stato, GameEngine engine,
+    AulaB(RegiaEsplorazione view, GameState stato, GameEngine engine,
           double larghezzaMappa, double altezzaMappa) {
         this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");

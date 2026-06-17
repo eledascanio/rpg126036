@@ -46,7 +46,7 @@ final class Porte {
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
 
-    private final ExplorationView view;
+    private final RegiaEsplorazione view;
     private final GameState stato;
     private final GameEngine engine;
     private final double larghezzaMappa;
@@ -65,7 +65,7 @@ final class Porte {
      * @param larghezzaMappa larghezza della mappa, per posizionare le porte
      * @param altezzaMappa   altezza della mappa, per posizionare le porte
      */
-    Porte(ExplorationView view, GameState stato, GameEngine engine,
+    Porte(RegiaEsplorazione view, GameState stato, GameEngine engine,
           double larghezzaMappa, double altezzaMappa) {
         this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
