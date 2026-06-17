@@ -39,6 +39,10 @@ final class Porte {
     static final double CORTILE_PORTA_A_X = 0.20;
     static final double CORTILE_PORTE_Y = 0.60;
     private static final double CORTILE_PORTA_B_X = 0.80;
+    // Porta-uscita dell'aula LA1 (capitolo 3) verso il cortile, in basso a destra: è
+    // anche il punto di comparsa quando si rientra in aula dal cortile, davanti ad essa.
+    static final double AULA_LA1_PORTA_X = 0.855;
+    static final double AULA_LA1_PORTA_Y = 0.84;
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
 

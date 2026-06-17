@@ -321,7 +321,7 @@ public class ExplorationView implements GameListener {
             if (isAulaLa1Capitolo3(scena)) {
                 // Capitolo 3: l'uscita non è un elemento visibile ma la porta in
                 // basso a destra, a cui avvicinarsi per tornare nel cortile.
-                porte.aggiungiPortaUscita(transizione, 0.855, 0.84);
+                porte.aggiungiPortaUscita(transizione, Porte.AULA_LA1_PORTA_X, Porte.AULA_LA1_PORTA_Y);
             } else if (isCortileCapitolo3(scena)) {
                 // Capitolo 3: anche le uscite del cortile sono porte invisibili sulle
                 // facciate. Il Polo A (rientro in aula LA1) a sinistra è un'uscita
@@ -383,6 +383,13 @@ public class ExplorationView implements GameListener {
             // Si esce dal Polo A: il giocatore compare davanti alla sua porta.
             posX = Porte.CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
             posY = (Porte.CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
+        } else if ("aula_la1".equals(engine.getScenaCorrente().getId())) {
+            // Entrando in aula LA1 (in qualsiasi capitolo) il giocatore compare davanti
+            // alla porta in basso a destra, dove si trova l'uscita verso il cortile.
+            // L'avvio del capitolo 3 fa eccezione: lì la posizione (davanti al PC) è
+            // conservata a monte da preservaPosizione, senza passare di qui.
+            posX = Porte.AULA_LA1_PORTA_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
+            posY = Porte.AULA_LA1_PORTA_Y * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
         } else if (ambiente != null) {
             posX = ambiente.spawnX() * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
             posY = ambiente.spawnY() * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
