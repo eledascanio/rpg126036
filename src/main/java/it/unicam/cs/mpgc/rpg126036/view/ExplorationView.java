@@ -99,6 +99,8 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private final Personaggio personaggio;
     private final List<ElementoScena> elementi = new ArrayList<>();
     private final SceneEnvironment ambienti = new SceneEnvironment();
+    // Geometria del layout: colloca gli elementi della scena su slot o a fasce.
+    private final DisposizioneScena disposizione = new DisposizioneScena(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
     // Porte degli edifici (Polo A/B del cortile e uscite a porta invisibili): la
     // trama delle porte vive qui, pilotata dalla scena che le offre i servizi.
     private final Porte porte;
@@ -269,7 +271,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
             }
         }
 
-        disponiElementi(ambiente.orElse(null));
+        disposizione.disponi(elementi, ambiente.orElse(null));
         // All'avvio del capitolo 3 il giocatore resta dov'era a fine capitolo 2
         // (davanti al PC); negli altri casi compare al punto di spawn della scena.
         if (preservaPosizione) {
@@ -481,63 +483,6 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     @Override
     public void registraAnimazione(Timeline animazione) {
         animazioniScena.add(animazione);
-    }
-
-    private void disponiElementi(SceneEnvironment.Ambiente ambiente) {
-        // Gli elementi a posizione fissa (le porte degli edifici) sono collocati a
-        // parte: qui si dispongono solo gli altri, su slot o a fasce.
-        List<ElementoScena> daDisporre = new ArrayList<>();
-        for (ElementoScena e : elementi) {
-            if (!e.posizioneFissa) {
-                daDisporre.add(e);
-            }
-        }
-        if (ambiente != null && !ambiente.slot().isEmpty()) {
-            disponiSuSlot(daDisporre, ambiente.slot());
-        } else {
-            disponiAFasce(daDisporre);
-        }
-    }
-
-    private void disponiSuSlot(List<ElementoScena> daDisporre, List<SceneEnvironment.Punto> slot) {
-        for (int i = 0; i < daDisporre.size(); i++) {
-            if (i < slot.size()) {
-                daDisporre.get(i).posiziona(slot.get(i).x() * MAPPA_LARGHEZZA, slot.get(i).y() * MAPPA_ALTEZZA);
-            } else {
-                // Piu' elementi che slot: fallback in basso, distribuiti in larghezza.
-                int extra = i - slot.size();
-                double x = MAPPA_LARGHEZZA * (extra + 1.0) / (daDisporre.size() - slot.size() + 1);
-                daDisporre.get(i).posiziona(x, MAPPA_ALTEZZA - 48);
-            }
-        }
-    }
-
-    /**
-     * Dispone gli elementi su tre fasce orizzontali (NPC in alto, oggetti ed enigmi
-     * al centro, uscite in basso), distribuendoli uniformemente in larghezza.
-     */
-    private void disponiAFasce(List<ElementoScena> daDisporre) {
-        List<ElementoScena> npc = new ArrayList<>();
-        List<ElementoScena> centro = new ArrayList<>();
-        List<ElementoScena> uscite = new ArrayList<>();
-        for (ElementoScena e : daDisporre) {
-            switch (e.tipo) {
-                case NPC -> npc.add(e);
-                case OGGETTO, ENIGMA -> centro.add(e);
-                case USCITA -> uscite.add(e);
-                case PORTA -> { /* le porte hanno posizione fissa, non a fasce */ }
-            }
-        }
-        disponiFascia(npc, 64);
-        disponiFascia(centro, MAPPA_ALTEZZA / 2);
-        disponiFascia(uscite, MAPPA_ALTEZZA - 64);
-    }
-
-    private void disponiFascia(List<ElementoScena> fascia, double y) {
-        for (int i = 0; i < fascia.size(); i++) {
-            double x = MAPPA_LARGHEZZA * (i + 1) / (fascia.size() + 1);
-            fascia.get(i).posiziona(x, y);
-        }
     }
 
     // ----------------------------------------------------------------------
