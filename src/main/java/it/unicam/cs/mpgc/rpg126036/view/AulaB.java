@@ -89,12 +89,16 @@ final class AulaB {
     }
 
     /**
-     * Allestisce l'Aula B: sovrappone l'effetto torcia (buio col foro di luce attorno
-     * al giocatore) e, in base alle statistiche, i luccichii degli indizi — l'orologio
-     * in fondo (Investigazione &ge; 2) e il tessuto sulla porta (Intuizione &ge; 2),
-     * che possono coesistere. Senza statistiche adatte resta solo la perquisizione.
+     * Se la scena corrente è l'Aula B al buio, la allestisce: sovrappone l'effetto
+     * torcia (buio col foro di luce attorno al giocatore) e, in base alle statistiche,
+     * i luccichii degli indizi — l'orologio in fondo (Investigazione &ge; 2) e il
+     * tessuto sulla porta (Intuizione &ge; 2), che possono coesistere. Senza statistiche
+     * adatte resta solo la perquisizione. Nelle altre scene non fa nulla.
      */
-    void costruisci() {
+    void allestisci() {
+        if (!eAulaBAlBuio()) {
+            return;
+        }
         luccichii.clear();
         view.aggiungiTorcia();
         Player player = stato.getPlayer();
@@ -127,7 +131,7 @@ final class AulaB {
      * nota il luccichio in fondo; senza nessuna delle due parte la perquisizione.
      */
     void forseIngresso() {
-        if (!view.isAulaBCapitolo3(engine.getScenaCorrente())) {
+        if (!eAulaBAlBuio()) {
             return;
         }
         Player player = stato.getPlayer();
@@ -140,6 +144,21 @@ final class AulaB {
         } else {
             mostraPerquisizione();
         }
+    }
+
+    /**
+     * @return {@code true} se nell'Aula B al buio le uscite non vanno rese come
+     *         elementi raggiungibili: l'avanzamento all'epilogo è innescato dal
+     *         ritrovamento dell'indizio, non da un'uscita visibile
+     */
+    boolean nascondeUscite() {
+        return eAulaBAlBuio();
+    }
+
+    /** @return {@code true} se la scena corrente è l'Aula B del capitolo 3 (al buio). */
+    private boolean eAulaBAlBuio() {
+        return "aula_b".equals(engine.getScenaCorrente().getId())
+                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
     }
 
     /**

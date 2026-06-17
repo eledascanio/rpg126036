@@ -12,6 +12,7 @@ import javafx.scene.paint.Color;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Porte degli edifici sul cortile e porte-uscita invisibili a posizione fissa.
@@ -34,15 +35,14 @@ import java.util.Objects;
 final class Porte {
 
     // Posizioni delle porte degli edifici sul cortile (frazioni della mappa): Polo A
-    // a sinistra, Polo B a destra, alla stessa altezza sulle facciate. Polo A e
-    // l'ordinata servono anche alla schermata (spawn e uscita del cortile cap. 3).
-    static final double CORTILE_PORTA_A_X = 0.20;
-    static final double CORTILE_PORTE_Y = 0.60;
+    // a sinistra, Polo B a destra, alla stessa altezza sulle facciate.
+    private static final double CORTILE_PORTA_A_X = 0.20;
+    private static final double CORTILE_PORTE_Y = 0.60;
     private static final double CORTILE_PORTA_B_X = 0.80;
     // Porta-uscita dell'aula LA1 (capitolo 3) verso il cortile, in basso a destra: è
     // anche il punto di comparsa quando si rientra in aula dal cortile, davanti ad essa.
-    static final double AULA_LA1_PORTA_X = 0.855;
-    static final double AULA_LA1_PORTA_Y = 0.84;
+    private static final double AULA_LA1_PORTA_X = 0.855;
+    private static final double AULA_LA1_PORTA_Y = 0.84;
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
 
@@ -78,6 +78,67 @@ final class Porte {
     void reset() {
         portaPoloA = null;
         portaPoloB = null;
+    }
+
+    /**
+     * Allestisce, se la scena corrente lo prevede, l'uscita come porta invisibile
+     * sulla facciata anziché come elemento-uscita visibile. Riguarda le scene del
+     * capitolo 3 con uscite "a porta": l'aula LA1 (porta in basso a destra verso il
+     * cortile) e il cortile (Polo A come uscita diretta, Polo B sbarrato).
+     *
+     * @param transizione l'uscita da allestire
+     * @return {@code true} se la porta è stata gestita qui, {@code false} se l'uscita
+     *         va resa come elemento generico dalla schermata
+     */
+    boolean allestisciUscita(Transition transizione) {
+        if (isAulaLa1Capitolo3()) {
+            // L'uscita non è un elemento visibile ma la porta in basso a destra, a cui
+            // avvicinarsi per tornare nel cortile.
+            aggiungiPortaUscita(transizione, AULA_LA1_PORTA_X, AULA_LA1_PORTA_Y);
+            return true;
+        }
+        if (isCortileCapitolo3()) {
+            // Anche le uscite del cortile sono porte invisibili sulle facciate: il Polo A
+            // (rientro in aula LA1) a sinistra è un'uscita diretta; il Polo B (Aula B) a
+            // destra è sbarrato e si apre solo se l'addetto ha aiutato, altrimenti va forzato.
+            if ("aula_la1".equals(transizione.idDestinazione())) {
+                aggiungiPortaUscita(transizione, CORTILE_PORTA_A_X, CORTILE_PORTE_Y);
+            } else {
+                aggiungiPortaPoloB(transizione);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return il punto di comparsa "davanti alla porta" per le scene che lo prevedono
+     *         — il cortile del capitolo 3 (davanti al Polo A, da cui si esce) e l'aula
+     *         LA1 di qualunque capitolo (davanti alla porta verso il cortile) — oppure
+     *         vuoto se la scena non comporta una comparsa legata a una porta
+     */
+    Optional<SceneEnvironment.Punto> comparsaScenaCorrente() {
+        if (isCortileCapitolo3()) {
+            // Si esce dal Polo A: il giocatore compare davanti alla sua porta.
+            return Optional.of(new SceneEnvironment.Punto(CORTILE_PORTA_A_X, CORTILE_PORTE_Y + 0.06));
+        }
+        if ("aula_la1".equals(engine.getScenaCorrente().getId())) {
+            // Entrando in aula LA1 (in qualsiasi capitolo) si compare davanti alla porta
+            // in basso a destra, dove si trova l'uscita verso il cortile. L'avvio del
+            // capitolo 3 fa eccezione (posizione conservata a monte dalla schermata).
+            return Optional.of(new SceneEnvironment.Punto(AULA_LA1_PORTA_X, AULA_LA1_PORTA_Y));
+        }
+        return Optional.empty();
+    }
+
+    private boolean isAulaLa1Capitolo3() {
+        return "aula_la1".equals(engine.getScenaCorrente().getId())
+                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
+    }
+
+    private boolean isCortileCapitolo3() {
+        return "cortile".equals(engine.getScenaCorrente().getId())
+                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
     }
 
     /**

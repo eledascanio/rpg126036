@@ -108,11 +108,8 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private final DialoghiNpc dialoghi;
     // Enigma del PC della vittima (capitolo 2): i sei PC, le vie di sblocco e la mail.
     private final PcVittima pcVittima;
-    // Pensiero che indirizza verso il PC di Antonio, mostrato una sola volta quando
-    // il giocatore ha sia la chiave sia l'indizio su Alex Kaur (in qualunque ordine).
-    private boolean pensieroIndagineMostrato;
-    // Pensiero mostrato una sola volta appena usciti dal Polo A nel cortile (capitolo 3).
-    private boolean pensieroCortileMostrato;
+    // Pensieri trasversali del protagonista (indagine, cortile, inizio capitolo).
+    private final Pensieri pensieri;
     // Effetto torcia dell'Aula B (velo nero col foro attorno al giocatore), non nullo
     // solo mentre si esplora l'Aula B al buio. Aggiornato a ogni frame.
     private EffettoTorcia torcia;
@@ -153,6 +150,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         this.porte = new Porte(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         this.dialoghi = new DialoghiNpc(this, stato, engine, resolver);
         this.pcVittima = new PcVittima(this, stato, engine, achievementManager, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        this.pensieri = new Pensieri(this, stato, engine, porte);
         this.personaggio = new Personaggio(new CharacterSprite(stato.getPlayer().getClasse()),
                 MAPPA_LARGHEZZA, MAPPA_ALTEZZA, elementi, suggerimento,
                 () -> overlayCorrente == null && !engine.isInPausa(),
@@ -282,30 +280,15 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
             resolver.creaEnigma(idEnigma, stato)
                     .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
         }
-        for (Transition transizione : engine.transizioniDisponibili()) {
-            if (isAulaLa1Capitolo2(scena) || isAulaBCapitolo3(scena)) {
-                // Capitolo 2: la mail si apre come overlay sbloccando il PC. Aula B
-                // (capitolo 3): la transizione all'epilogo è innescata trovando
-                // l'indizio, non da un'uscita visibile. In entrambi i casi la
-                // transizione non diventa un'uscita da raggiungere.
-                continue;
-            }
-            if (isAulaLa1Capitolo3(scena)) {
-                // Capitolo 3: l'uscita non è un elemento visibile ma la porta in
-                // basso a destra, a cui avvicinarsi per tornare nel cortile.
-                porte.aggiungiPortaUscita(transizione, Porte.AULA_LA1_PORTA_X, Porte.AULA_LA1_PORTA_Y);
-            } else if (isCortileCapitolo3(scena)) {
-                // Capitolo 3: anche le uscite del cortile sono porte invisibili sulle
-                // facciate. Il Polo A (rientro in aula LA1) a sinistra è un'uscita
-                // diretta; il Polo B (Aula B) a destra è invece sbarrato: si apre solo
-                // se l'addetto ha aiutato, altrimenti va forzato.
-                if ("aula_la1".equals(transizione.idDestinazione())) {
-                    porte.aggiungiPortaUscita(transizione, Porte.CORTILE_PORTA_A_X, Porte.CORTILE_PORTE_Y);
-                } else {
-                    porte.aggiungiPortaPoloB(transizione);
+        // Alcune scene non rendono le uscite come elementi raggiungibili: l'aula della
+        // mail (cap. 2) avanza aprendo la mail sul PC, l'Aula B al buio (cap. 3) avanza
+        // trovando l'indizio. Negli altri casi le porte invisibili del cortile e
+        // dell'aula LA1 (cap. 3) sono allestite dalle Porte; il resto è un'uscita generica.
+        if (!aulaB.nascondeUscite() && !pcVittima.nascondeUscite()) {
+            for (Transition transizione : engine.transizioniDisponibili()) {
+                if (!porte.allestisciUscita(transizione)) {
+                    aggiungiUscita(transizione);
                 }
-            } else {
-                aggiungiUscita(transizione);
             }
         }
 
@@ -321,10 +304,8 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         // Le porte del cortile hanno posizione fissa sulle facciate degli edifici:
         // vanno collocate dopo la disposizione a slot.
         porte.posizionaCortile();
-        // L'Aula B aggiunge l'effetto torcia e i luccichii degli indizi sopra il resto.
-        if (isAulaBCapitolo3(scena)) {
-            aulaB.costruisci();
-        }
+        // L'Aula B (al buio) aggiunge torcia e luccichii sopra il resto; altrove non fa nulla.
+        aulaB.allestisci();
     }
 
     /**
@@ -353,17 +334,13 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private void posizionaPersonaggioIniziale(SceneEnvironment.Ambiente ambiente) {
         double x;
         double y;
-        if (isCortileCapitolo3(engine.getScenaCorrente())) {
-            // Si esce dal Polo A: il giocatore compare davanti alla sua porta.
-            x = Porte.CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
-            y = (Porte.CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - Personaggio.LATO / 2;
-        } else if ("aula_la1".equals(engine.getScenaCorrente().getId())) {
-            // Entrando in aula LA1 (in qualsiasi capitolo) il giocatore compare davanti
-            // alla porta in basso a destra, dove si trova l'uscita verso il cortile.
-            // L'avvio del capitolo 3 fa eccezione: lì la posizione (davanti al PC) è
-            // conservata a monte da preservaPosizione, senza passare di qui.
-            x = Porte.AULA_LA1_PORTA_X * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
-            y = Porte.AULA_LA1_PORTA_Y * MAPPA_ALTEZZA - Personaggio.LATO / 2;
+        // Le scene con un'uscita "a porta" fanno comparire il giocatore davanti ad essa
+        // (il punto lo conoscono le Porte); altrimenti vale lo spawn dell'ambiente, o il
+        // centro-basso della mappa astratta se la scena non ha un ambiente registrato.
+        Optional<SceneEnvironment.Punto> davantiAPorta = porte.comparsaScenaCorrente();
+        if (davantiAPorta.isPresent()) {
+            x = davantiAPorta.get().x() * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
+            y = davantiAPorta.get().y() * MAPPA_ALTEZZA - Personaggio.LATO / 2;
         } else if (ambiente != null) {
             x = ambiente.spawnX() * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
             y = ambiente.spawnY() * MAPPA_ALTEZZA - Personaggio.LATO / 2;
@@ -462,20 +439,9 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         registra(e);
     }
 
-    /**
-     * Mostra una sola volta il pensiero che indirizza verso il PC di Antonio, non
-     * appena il giocatore possiede sia la chiave sia l'indizio su Alex Kaur (in
-     * qualunque ordine abbia compiuto le due azioni).
-     */
     @Override
     public void forsePensieroIndagine() {
-        if (!pensieroIndagineMostrato && porte.isEnigmaPortaSbloccato()) {
-            pensieroIndagineMostrato = true;
-            mostraDialogo(stato.getPlayer().getNome(),
-                    "Quel ragazzo ha detto di aver visto Antonio litigare con Alex… ma perché "
-                            + "l'aggressore avrebbe dovuto rubargli le chiavi? Mi servono altre "
-                            + "informazioni… forse riesco a controllare il PC di Antonio al Polo A.");
-        }
+        pensieri.forseIndagine();
     }
 
     private void aggiungiUscita(Transition transizione) {
@@ -509,44 +475,6 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
                 && contenuti.oggetti().isEmpty()
                 && contenuti.enigmi().isEmpty()
                 && !engine.isPartitaTerminata();
-    }
-
-    /**
-     * @return {@code true} se la scena è l'aula LA1 del capitolo 2, dove l'email
-     *         si apre come overlay sbloccando il PC e la sua transizione non va
-     *         resa come uscita (a differenza dell'aula LA1 del capitolo 3)
-     */
-    private boolean isAulaLa1Capitolo2(Scene scena) {
-        return "aula_la1".equals(scena.getId())
-                && "capitolo2".equals(engine.getCapitoloCorrente().getId());
-    }
-
-    /**
-     * @return {@code true} se la scena è l'aula LA1 del capitolo 3, dove l'uscita
-     *         verso il cortile è una porta invisibile in basso a destra
-     */
-    private boolean isAulaLa1Capitolo3(Scene scena) {
-        return "aula_la1".equals(scena.getId())
-                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
-    }
-
-    /**
-     * @return {@code true} se la scena è il cortile del capitolo 3, dove le uscite
-     *         verso il Polo A e il Polo B sono porte invisibili sulle facciate
-     */
-    private boolean isCortileCapitolo3(Scene scena) {
-        return "cortile".equals(scena.getId())
-                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
-    }
-
-    /**
-     * @return {@code true} se la scena è l'Aula B del capitolo 3, esplorabile al buio
-     *         con l'effetto torcia e gli indizi da trovare
-     */
-    @Override
-    public boolean isAulaBCapitolo3(Scene scena) {
-        return "aula_b".equals(scena.getId())
-                && "capitolo3".equals(engine.getCapitoloCorrente().getId());
     }
 
     // ----------------------------------------------------------------------
@@ -725,21 +653,9 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         String titolo = engine.getScenaCorrente().getTitolo();
         context.navigator().mostra(new ChapterTitleView(context, titolo, () -> {
             context.navigator().mostra(root);
-            forsePensieroCortile();
+            pensieri.forseCortile();
             aulaB.forseIngresso();
         }).getRoot());
-    }
-
-    /**
-     * Mostra una sola volta, appena usciti dal Polo A nel cortile (capitolo 3), il
-     * pensiero che sprona il giocatore a sbrigarsi.
-     */
-    private void forsePensieroCortile() {
-        if (!pensieroCortileMostrato && isCortileCapitolo3(engine.getScenaCorrente())) {
-            pensieroCortileMostrato = true;
-            mostraDialogo(stato.getPlayer().getNome(),
-                    "Stanno tutti scappando, devo muovermi prima che sia tardi.");
-        }
     }
 
     private boolean haEnigmaNonRisolto() {
@@ -1199,25 +1115,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         String titoloScena = engine.getScenaCorrente().getTitolo();
         Runnable vaiAllEsplorazione = () -> {
             context.navigator().mostra(root);
-            mostraPensieroInizioCapitolo(nuovo);
+            pensieri.forseInizioCapitolo(nuovo);
         };
         Runnable vaiAllaScena = () -> context.navigator().mostra(
                 new ChapterTitleView(context, titoloScena, vaiAllEsplorazione).getRoot());
         context.navigator().mostra(
                 new ChapterTitleView(context, etichettaCapitolo, vaiAllaScena).getRoot());
-    }
-
-    /**
-     * All'inizio di alcuni capitoli il personaggio esprime un pensiero che ne
-     * inquadra l'obiettivo. Nel capitolo 3 lo spinge a investigare al Polo B.
-     *
-     * @param nuovo il capitolo appena iniziato
-     */
-    private void mostraPensieroInizioCapitolo(Chapter nuovo) {
-        if ("capitolo3".equals(nuovo.getId())) {
-            mostraDialogo(stato.getPlayer().getNome(),
-                    "Devo assolutamente andare a investigare al polo B prima che sia troppo tardi.");
-        }
     }
 
     /**

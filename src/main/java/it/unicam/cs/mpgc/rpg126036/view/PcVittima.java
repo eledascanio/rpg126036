@@ -70,6 +70,16 @@ final class PcVittima {
     }
 
     /**
+     * @return {@code true} se nell'aula della mail (aula LA1 del capitolo 2) le uscite
+     *         non vanno rese come elementi raggiungibili: si avanza aprendo la mail sul
+     *         PC della vittima, che la presenta come overlay
+     */
+    boolean nascondeUscite() {
+        return "aula_la1".equals(engine.getScenaCorrente().getId())
+                && "capitolo2".equals(engine.getCapitoloCorrente().getId());
+    }
+
+    /**
      * Dispone i sei PC del laboratorio (due per banco) come punti interattivi
      * invisibili e indistinguibili. Solo l'ultimo a destra, verso il muro, è il PC
      * della vittima: interagendovi la password si inserisce da sé e si apre la mail.

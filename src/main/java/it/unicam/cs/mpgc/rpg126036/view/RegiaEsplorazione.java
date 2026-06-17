@@ -1,7 +1,6 @@
 package it.unicam.cs.mpgc.rpg126036.view;
 
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
-import it.unicam.cs.mpgc.rpg126036.model.Scene;
 import it.unicam.cs.mpgc.rpg126036.model.StatType;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
 import javafx.animation.Timeline;
@@ -102,11 +101,4 @@ public interface RegiaEsplorazione {
 
     /** Avanza il motore alla scena indicata senza ricostruire la vista (scene di servizio). */
     void avanzaSenzaRicostruire(String idScena);
-
-    // ----------------------------------------------------------------------
-    // Predicati di scena
-    // ----------------------------------------------------------------------
-
-    /** @return {@code true} se la scena è l'Aula B del capitolo 3 (esplorazione al buio). */
-    boolean isAulaBCapitolo3(Scene scena);
 }
