@@ -36,6 +36,52 @@ cd rpg126036
 
 ---
 
+## 🏗️ Architettura
+
+Il progetto è organizzato a **strati con responsabilità separate**, secondo i principi **SOLID**:
+l'interfaccia grafica dipende dal motore e dal modello, mai il contrario. Tutti i package vivono
+sotto `it.unicam.cs.mpgc.rpg126036`.
+
+| Package | Responsabilità |
+|---|---|
+| `model` | Entità di dominio: `Player`, `Scene`, `Chapter`, `Item`, `Npc`, `Clue`, `Puzzle`, `StatType`, … |
+| `interaction` | Interazioni polimorfiche (`Interaction` e i sottotipi `Dialogue`, `Item`, `StatCheck`, `Simple`) con il loro esito |
+| `engine` | Motore di gioco: `GameEngine` mantiene lo stato (`GameState`) e notifica i `GameListener` |
+| `persistence` | Caricamento della campagna (`CampaignLoader`, `ChapterLoader`) e salvataggi (`SaveRepository`/`XmlSaveRepository`, 3 slot) |
+| `achievement` | Traguardi globali del giocatore (`AchievementManager` e relativi listener) |
+| `app` | Composizione e avvio: `Main`, `GameSession`, `GameSessionFactory`, `ContentResolver` |
+| `view` | Interfaccia grafica JavaFX (schermate e componenti) |
+
+### Motore ed eventi (Observer)
+
+`GameEngine` non conosce l'interfaccia grafica: pubblica gli eventi di gioco (cambio scena,
+avanzamento di capitolo, game over, completamento) ai `GameListener`. Vi reagiscono — disaccoppiati —
+la schermata di esplorazione, l'**autosalvataggio** di fine capitolo e la pulizia dei salvataggi al
+game over.
+
+### La schermata di esplorazione
+
+La schermata di gioco è scomposta in **collaboratori coesi**, ognuno con una sola responsabilità.
+Per invertire la dipendenza (**DIP**), i componenti di trama dipendono dal contratto
+`RegiaEsplorazione` e non dalla classe concreta `ExplorationView`, che ne resta il coordinatore.
+
+| Componente | Responsabilità |
+|---|---|
+| `ExplorationView` | Coordinatore: reagisce agli eventi del motore e delega ai collaboratori |
+| `RegiaEsplorazione` | Contratto dei servizi di scena offerti ai componenti di trama |
+| `Personaggio` | Avatar giocante: sprite, posizione, ciclo di gioco, input e prossimità |
+| `MappaCollisioni` | Rilevamento delle collisioni del personaggio con i muri (logica pura) |
+| `DisposizioneScena` | Geometria del layout: colloca gli elementi su slot o a fasce |
+| `GestoreOverlay` | Pannelli modali: dialoghi, messaggi, pausa, schermate di fine capitolo |
+| `HudEsplorazione` | Barra di stato: energia, XP e statistiche |
+| `EffettoTorcia` | Velo e cono di luce dell'Aula B al buio |
+| `Porte`, `AulaB`, `PcVittima`, `DialoghiNpc`, `Pensieri` | Trama dei capitoli, ciascun componente per la propria porzione |
+
+Aggiungere o modificare un capitolo agisce sul componente di trama che lo riguarda, lasciando la
+schermata **chiusa alle modifiche e aperta all'estensione** (**OCP**).
+
+---
+
 ## 🤖 Uso di strumenti di AI
 
 Gli strumenti di AI sono stati impiegati esclusivamente come **supporto** allo sviluppo: l'intera
