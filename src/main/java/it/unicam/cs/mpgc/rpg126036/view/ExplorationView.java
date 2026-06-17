@@ -49,11 +49,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.RadialGradient;
-import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
@@ -109,8 +105,6 @@ public class ExplorationView implements GameListener {
     private static final int ADDETTO_XP = 60;
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
-    // Aula B al buio: raggio del cono di luce della torcia attorno al giocatore (px).
-    private static final double TORCIA_RAGGIO = 95;
     // XP per ogni indizio trovato con le scorciatoie (Investigazione/Intuizione)
     // e per la perquisizione "a tentoni", più l'energia spesa da quest'ultima.
     private static final int AULA_B_XP_INDIZIO = 60;
@@ -185,9 +179,9 @@ public class ExplorationView implements GameListener {
     private boolean pcSbagliatoToccato;
     // Pensiero mostrato una sola volta appena usciti dal Polo A nel cortile (capitolo 3).
     private boolean pensieroCortileMostrato;
-    // Effetto torcia dell'Aula B (rettangolo nero col foro attorno al giocatore), non
-    // nullo solo mentre si esplora l'Aula B al buio. Aggiornato a ogni frame.
-    private Rectangle torciaCorrente;
+    // Effetto torcia dell'Aula B (velo nero col foro attorno al giocatore), non nullo
+    // solo mentre si esplora l'Aula B al buio. Aggiornato a ogni frame.
+    private EffettoTorcia torcia;
     // Animazioni della scena corrente (es. la pulsazione dei luccichii), fermate alla
     // ricostruzione della scena per non lasciarle attive a vuoto.
     private final List<Timeline> animazioniScena = new ArrayList<>();
@@ -317,7 +311,7 @@ public class ExplorationView implements GameListener {
         mappa.getChildren().clear();
         portaPoloA = null;
         portaPoloB = null;
-        torciaCorrente = null;
+        torcia = null;
         animazioniScena.forEach(Timeline::stop);
         animazioniScena.clear();
 
@@ -993,29 +987,20 @@ public class ExplorationView implements GameListener {
     }
 
     /**
-     * Aggiunge il rettangolo nero della torcia sopra lo scenario e il personaggio:
-     * un foro di luce (gradiente radiale) lo rende trasparente solo attorno al
-     * giocatore, lasciando il resto dell'aula al buio.
+     * Aggiunge il velo della torcia sopra lo scenario e il personaggio: un foro di
+     * luce lo rende trasparente solo attorno al giocatore, lasciando il resto
+     * dell'aula al buio.
      */
     private void aggiungiTorcia() {
-        torciaCorrente = new Rectangle(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
-        torciaCorrente.setMouseTransparent(true);
-        mappa.getChildren().add(torciaCorrente);
+        torcia = new EffettoTorcia(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        mappa.getChildren().add(torcia.nodo());
     }
 
     /** Ricalcola il foro di luce della torcia centrandolo sul giocatore. */
     private void aggiornaTorcia() {
-        if (torciaCorrente == null) {
-            return;
+        if (torcia != null) {
+            torcia.centraSu(posX + LATO_PERSONAGGIO / 2.0, posY + LATO_PERSONAGGIO / 2.0);
         }
-        double cx = posX + LATO_PERSONAGGIO / 2.0;
-        double cy = posY + LATO_PERSONAGGIO / 2.0;
-        RadialGradient luce = new RadialGradient(0, 0, cx, cy, TORCIA_RAGGIO, false,
-                CycleMethod.NO_CYCLE,
-                new Stop(0.0, Color.color(0, 0, 0, 0.0)),
-                new Stop(0.55, Color.color(0, 0, 0, 0.0)),
-                new Stop(1.0, Color.color(0, 0, 0, 0.97)));
-        torciaCorrente.setFill(luce);
     }
 
     /**
