@@ -14,7 +14,6 @@ import it.unicam.cs.mpgc.rpg126036.model.Chapter;
 import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
-import it.unicam.cs.mpgc.rpg126036.model.NpcCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.PcVittimaPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
@@ -82,16 +81,15 @@ public class ExplorationView implements GameListener {
     private static final double ALTEZZA_OGGETTO = 32;
     // Altezza degli NPC con sprite dedicato (poco meno del personaggio giocante).
     private static final double ALTEZZA_NPC = 58;
-    // Energia consumata a ogni dialogo con un NPC (regola di gioco).
-    private static final int COSTO_ENERGIA_DIALOGO = 10;
+    // Energia consumata a ogni dialogo con un NPC (regola di gioco). Condivisa con i
+    // dialoghi NPC estratti (DialoghiNpc) e con la penalità del PC sbagliato.
+    static final int COSTO_ENERGIA_DIALOGO = 10;
     // Le regole numeriche dell'enigma del PC della vittima (binario, soluzione, costi,
     // XP) vivono in PcVittimaPuzzle: la vista vi applica gli effetti, non li ridefinisce.
     // Posizione dell'addetto alle pulizie nel cortile (capitolo 3): davanti al Polo B,
     // di lato rispetto alla porta e un po' arretrato verso la facciata.
     private static final double POLO_B_NPC_X = 0.73;
     private static final double POLO_B_NPC_Y = 0.58;
-    // XP guadagnati convincendo l'addetto ad aprire la porta dell'Aula B.
-    private static final int ADDETTO_XP = 60;
 
     private final AppContext context;
     private final GameEngine engine;
@@ -127,6 +125,8 @@ public class ExplorationView implements GameListener {
     // Porte degli edifici (Polo A/B del cortile e uscite a porta invisibili): la
     // trama delle porte vive qui, pilotata dalla scena che le offre i servizi.
     private final Porte porte;
+    // Dialoghi con gli NPC (standard e su misura: tecnico, addetto, studente ubriaco).
+    private final DialoghiNpc dialoghi;
     // Enigma del PC della vittima (capitolo 2): detiene le regole (binario, costi, XP)
     // e lo stato di risoluzione. La vista ne applica gli effetti invece di duplicarli.
     private PcVittimaPuzzle pcPuzzle;
@@ -177,6 +177,7 @@ public class ExplorationView implements GameListener {
         this.sprite = new CharacterSprite(stato.getPlayer().getClasse());
         this.aulaB = new AulaB(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         this.porte = new Porte(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        this.dialoghi = new DialoghiNpc(this, stato, engine, resolver);
 
         root = new StackPane(costruisciLayout());
         root.getStyleClass().add("screen-root");
@@ -424,13 +425,13 @@ public class ExplorationView implements GameListener {
         // altri usano il dialogo standard.
         String id = npc.getId();
         if ("studente_ubriaco".equals(id)) {
-            e.azione = () -> interagisciConStudenteUbriaco(npc);
+            e.azione = () -> dialoghi.conStudenteUbriaco(npc);
         } else if ("tecnico_laboratorio".equals(id)) {
-            e.azione = () -> interagisciConTecnico(npc);
+            e.azione = () -> dialoghi.conTecnico(npc);
         } else if ("addetto_pulizie".equals(id)) {
-            e.azione = () -> interagisciConAddetto(npc);
+            e.azione = () -> dialoghi.conAddetto(npc);
         } else {
-            e.azione = () -> interagisciConNpc(npc);
+            e.azione = () -> dialoghi.conNpc(npc);
         }
         registra(e);
         // L'addetto alle pulizie del cortile (capitolo 3) ha posizione fissa accanto
@@ -719,7 +720,7 @@ public class ExplorationView implements GameListener {
      * appena il giocatore possiede sia la chiave sia l'indizio su Alex Kaur (in
      * qualunque ordine abbia compiuto le due azioni).
      */
-    private void forsePensieroIndagine() {
+    void forsePensieroIndagine() {
         if (!pensieroIndagineMostrato && porte.isEnigmaPortaSbloccato()) {
             pensieroIndagineMostrato = true;
             mostraDialogo(stato.getPlayer().getNome(),
@@ -1042,193 +1043,6 @@ public class ExplorationView implements GameListener {
     // ----------------------------------------------------------------------
     // Interazioni
     // ----------------------------------------------------------------------
-
-    private void interagisciConNpc(Npc npc) {
-        Player player = stato.getPlayer();
-        // Parlare con un NPC costa energia; se si esaurisce, scatta il game over.
-        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
-        aggiornaHud();
-        if (engine.verificaGameOver()) {
-            return;
-        }
-        String battuta = npc.parla(player);
-
-        StringBuilder testo = new StringBuilder(battuta);
-        if (npc.getDialogo().isAccessibile(player)) {
-            resolver.indizioDi(npc.getId()).ifPresent(indizio -> {
-                if (engine.trovaIndizio(indizio)) {
-                    testo.append("\n\n🔎 Nuovo indizio nel diario: ").append(indizio.titolo());
-                }
-            });
-        }
-        mostraDialogo(npc.getNome(), testo.toString());
-    }
-
-    /**
-     * Interazione su misura con il tecnico di laboratorio. Costa energia come ogni
-     * dialogo; con Carisma sufficiente lo scambio si svolge in tre battute scorrevoli
-     * (tecnico, giocatore, tecnico) e sblocca la password del PC. Sotto soglia il
-     * tecnico resta sotto shock e non rivela nulla.
-     */
-    private void interagisciConTecnico(Npc npc) {
-        Player player = stato.getPlayer();
-        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
-        aggiornaHud();
-        if (engine.verificaGameOver()) {
-            return;
-        }
-        if (!npc.getDialogo().isAccessibile(player)) {
-            mostraDialogo(npc.getNome(), npc.parla(player));
-            return;
-        }
-        // L'aver parlato con l'assistente abilita la via "Carisma" del PC della vittima.
-        stato.setFlag(ContentResolver.FLAG_ASSISTENTE);
-        List<String[]> battute = List.of(
-                new String[]{npc.getNome(), NpcCatalog.TECNICO_BATTUTA_1},
-                new String[]{player.getNome(), NpcCatalog.TECNICO_BATTUTA_GIOCATORE_1},
-                new String[]{player.getNome(), NpcCatalog.TECNICO_BATTUTA_GIOCATORE_2},
-                new String[]{npc.getNome(), NpcCatalog.TECNICO_BATTUTA_3});
-        mostraSequenzaDialogo(battute, 0, () -> concludiDialogoTecnico(npc));
-    }
-
-    /**
-     * Mostra in sequenza le battute (nome, testo): premendo E si passa alla
-     * successiva; dopo l'ultima si esegue {@code alTermine}.
-     */
-    private void mostraSequenzaDialogo(List<String[]> battute, int indice, Runnable alTermine) {
-        String[] battuta = battute.get(indice);
-        boolean ultima = indice >= battute.size() - 1;
-        mostraDialogo(battuta[0], battuta[1], () -> {
-            if (ultima) {
-                alTermine.run();
-            } else {
-                mostraSequenzaDialogo(battute, indice + 1, alTermine);
-            }
-        }, List.of());
-    }
-
-    /**
-     * Conclusione del dialogo con il tecnico: registra l'indizio sulla password e,
-     * se è nuovo, lo annuncia in un'ultima battuta; altrimenti chiude.
-     */
-    private void concludiDialogoTecnico(Npc npc) {
-        var indizio = resolver.indizioDi(npc.getId());
-        if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
-            mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo());
-        } else {
-            chiudiOverlay();
-        }
-    }
-
-    /**
-     * Interazione su misura con l'addetto alle pulizie nel cortile (capitolo 3).
-     * L'addetto respinge tutti; con Carisma &ge; 2 il giocatore lo convince in una
-     * sequenza di battute (rifiuto, replica, accettazione): l'addetto apre la porta
-     * laterale dell'Aula B, assegna {@value #ADDETTO_XP} XP e rivela l'indizio. Sotto
-     * soglia il rifiuto costa {@link #COSTO_ENERGIA_DIALOGO} di energia. Una volta
-     * aperta la porta, ulteriori interazioni si limitano a sollecitare il giocatore.
-     */
-    private void interagisciConAddetto(Npc npc) {
-        if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
-            mostraDialogo(npc.getNome(), "Sbrigati, ti ho già aperto la porta laterale.");
-            return;
-        }
-        Player player = stato.getPlayer();
-        if (npc.getDialogo().isAccessibile(player)) {
-            List<String[]> battute = List.of(
-                    new String[]{npc.getNome(), NpcCatalog.ADDETTO_RIFIUTO},
-                    new String[]{player.getNome(), NpcCatalog.ADDETTO_GIOCATORE},
-                    new String[]{npc.getNome(), NpcCatalog.ADDETTO_ACCETTA});
-            mostraSequenzaDialogo(battute, 0, () -> concludiDialogoAddetto(npc));
-            return;
-        }
-        // Carisma insufficiente: rifiuto secco, a costo di energia.
-        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
-        aggiornaHud();
-        if (engine.verificaGameOver()) {
-            return;
-        }
-        mostraDialogo(npc.getNome(), NpcCatalog.ADDETTO_RIFIUTO);
-    }
-
-    /**
-     * Conclusione del dialogo riuscito con l'addetto: sblocca la porta dell'Aula B,
-     * assegna gli XP e registra (annunciandolo) l'indizio sullo studente in fuga.
-     */
-    private void concludiDialogoAddetto(Npc npc) {
-        stato.setFlag(ContentResolver.FLAG_PORTA_AULA_B);
-        stato.getPlayer().aggiungiXp(ADDETTO_XP);
-        aggiornaHud();
-        var indizio = resolver.indizioDi(npc.getId());
-        if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
-            mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo(),
-                    () -> mostraPotenziamentoSeDovuto(this::chiudiOverlay), List.of());
-        } else {
-            mostraPotenziamentoSeDovuto(this::chiudiOverlay);
-        }
-    }
-
-    /**
-     * Interazione su misura con lo studente ubriaco. Come ogni dialogo costa
-     * {@link #COSTO_ENERGIA_DIALOGO} di energia; se il giocatore ha Carisma &gt; 0
-     * (ha scelto il rappresentante) l'NPC lo riconosce e gli offre un sorso,
-     * restituendo l'energia appena spesa quando il giocatore passa la battuta
-     * (premendo E). In ogni caso prosegue con la battuta comune a scelte.
-     */
-    private void interagisciConStudenteUbriaco(Npc npc) {
-        Player player = stato.getPlayer();
-        player.riduciEnergia(COSTO_ENERGIA_DIALOGO);
-        aggiornaHud();
-        if (engine.verificaGameOver()) {
-            return;
-        }
-        if (player.getStatistica(StatType.CARISMA) > 0) {
-            String saluto = "Ehi, ma tu sei il rappresentante! Tieni, fatti un goccio... "
-                    + "alla salute di Antonio, povero ragazzo.";
-            // Al passaggio della battuta si recupera l'energia spesa per parlargli.
-            mostraDialogo(npc.getNome(), saluto, () -> {
-                player.ripristinaEnergia(COSTO_ENERGIA_DIALOGO);
-                aggiornaHud();
-                mostraDialogoUbriacoConScelte(npc);
-            }, List.of());
-        } else {
-            mostraDialogoUbriacoConScelte(npc);
-        }
-    }
-
-    /**
-     * Battuta comune dello studente ubriaco (mostrata a tutti i giocatori) con le
-     * due scelte: chiedere dettagli per ottenere l'indizio o lasciar perdere.
-     */
-    private void mostraDialogoUbriacoConScelte(Npc npc) {
-        String battuta = "Ho visto Antonio discutere con qualcuno prima... mi pare.";
-        mostraDialogo(npc.getNome(), battuta, this::chiudiOverlay, List.of(
-                new OpzioneDialogo("Chiedi dettagli", () -> chiediDettagliUbriaco(npc)),
-                new OpzioneDialogo("Lascia stare", this::chiudiOverlay)));
-    }
-
-    /**
-     * Esito della scelta "chiedi dettagli": la prima volta assegna +20 XP e
-     * registra nel diario l'indizio sul litigante; poi mostra la rivelazione.
-     */
-    private void chiediDettagliUbriaco(Npc npc) {
-        Player player = stato.getPlayer();
-        StringBuilder testo = new StringBuilder("Mi sembrava di averlo visto litigare con Alex Kaur.");
-        resolver.indizioDi(npc.getId()).ifPresent(indizio -> {
-            if (engine.trovaIndizio(indizio)) {
-                player.aggiungiXp(20);
-                testo.append("\n\n🔎 Nuovo indizio nel diario: ").append(indizio.titolo());
-            }
-        });
-        aggiornaHud();
-        // Alla chiusura della battuta, se ora il giocatore ha sia la chiave sia
-        // l'indizio, parte il pensiero che lo indirizza verso il PC di Antonio.
-        mostraDialogo(npc.getNome(), testo.toString(),
-                () -> mostraPotenziamentoSeDovuto(() -> {
-                    chiudiOverlay();
-                    forsePensieroIndagine();
-                }), List.of());
-    }
 
     private void raccogliOggetto(ItemInteraction oggetto, ElementoScena elemento) {
         InteractionResult esito = engine.raccogli(oggetto);
