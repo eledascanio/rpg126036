@@ -22,7 +22,6 @@ import it.unicam.cs.mpgc.rpg126036.model.StatType;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
 import it.unicam.cs.mpgc.rpg126036.persistence.Campaign;
 import it.unicam.cs.mpgc.rpg126036.persistence.SceneContents;
-import javafx.animation.AnimationTimer;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -34,7 +33,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -47,11 +45,9 @@ import javafx.scene.text.TextAlignment;
 
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -70,12 +66,6 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     private static final double MAPPA_LARGHEZZA = 860;
     private static final double MAPPA_ALTEZZA = 440;
-    private static final double LATO_PERSONAGGIO = 28;
-    // Altezza dello sprite a schermo: piu' alto del riquadro di collisione, che
-    // resta ai piedi del personaggio (stile GdR 2D dall'alto).
-    private static final double ALTEZZA_SPRITE = 60;
-    private static final double VELOCITA = 3.0;
-    private static final double RAGGIO_INTERAZIONE = 52;
     // Altezza degli oggetti raccoglibili che hanno uno sprite dedicato.
     private static final double ALTEZZA_OGGETTO = 32;
     // Altezza degli NPC con sprite dedicato (poco meno del personaggio giocante).
@@ -105,19 +95,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     // Mappa e movimento.
     private final Pane mappa = new Pane();
-    private final CharacterSprite sprite;
-    private final ImageView personaggio = new ImageView();
-    private CharacterSprite.Direzione direzione = CharacterSprite.Direzione.GIU;
-    private final Set<KeyCode> tastiPremuti = EnumSet.noneOf(KeyCode.class);
+    // Avatar giocante: sprite, posizione, ciclo di gioco, input e rilevamento di
+    // prossimita'. La schermata gli offre la lista degli elementi e il suggerimento
+    // da aggiornare e ne riceve le interazioni (E/ESC) come azioni di confine.
+    private final Personaggio personaggio;
     private final List<ElementoScena> elementi = new ArrayList<>();
     private final SceneEnvironment ambienti = new SceneEnvironment();
-    private final List<Rectangle2D> muri = new ArrayList<>();
-    // Rilevamento collisioni col personaggio: condivide la lista dei muri qui sopra.
-    private final MappaCollisioni collisioni = new MappaCollisioni(muri, LATO_PERSONAGGIO);
-    private final AnimationTimer ciclo;
-    private double posX = (MAPPA_LARGHEZZA - LATO_PERSONAGGIO) / 2;
-    private double posY = (MAPPA_ALTEZZA - LATO_PERSONAGGIO) / 2;
-    private ElementoScena elementoVicino;
     // Porte degli edifici (Polo A/B del cortile e uscite a porta invisibili): la
     // trama delle porte vive qui, pilotata dalla scena che le offre i servizi.
     private final Porte porte;
@@ -166,18 +149,20 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         this.campaign = session.getCampaign();
         this.achievementManager = session.getAchievementManager();
         this.resolver = context.contentResolver();
-        this.sprite = new CharacterSprite(stato.getPlayer().getClasse());
         this.aulaB = new AulaB(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         this.porte = new Porte(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         this.dialoghi = new DialoghiNpc(this, stato, engine, resolver);
         this.pcVittima = new PcVittima(this, stato, engine, achievementManager, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        this.personaggio = new Personaggio(new CharacterSprite(stato.getPlayer().getClasse()),
+                MAPPA_LARGHEZZA, MAPPA_ALTEZZA, elementi, suggerimento,
+                () -> overlayCorrente == null && !engine.isInPausa(),
+                this::aggiornaTorcia, this::interagisci, this::gestisciEscape);
 
         root = new StackPane(costruisciLayout());
         root.getStyleClass().add("screen-root");
         aggiungiPulsanteInventario();
 
-        this.ciclo = creaCicloDiGioco();
-        collegaInputAllaScena();
+        personaggio.collegaA(root);
 
         engine.addListener(this);
         achievementManager.addAchievementListener(t -> traguardoPendente = t);
@@ -216,17 +201,10 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     }
 
     private Node costruisciMappa() {
-        mappa.getChildren().add(personaggio);
+        mappa.getChildren().add(personaggio.nodo());
         mappa.getStyleClass().add("map-pane");
         mappa.setPrefSize(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         mappa.setMaxSize(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
-        personaggio.setImage(sprite.foglio());
-        personaggio.setFitHeight(ALTEZZA_SPRITE);
-        personaggio.setPreserveRatio(true);
-        // Pixel art: bordi netti anche scalando.
-        personaggio.setSmooth(false);
-        personaggio.setViewport(sprite.viewport(direzione));
-        aggiornaPosizioneSprite();
 
         titoloScena.getStyleClass().addAll("scene-title", "pixel-font");
         VBox contenitore = new VBox(8, titoloScena, mappa);
@@ -265,7 +243,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      */
     private void costruisciElementiScena() {
         elementi.clear();
-        muri.clear();
+        personaggio.azzeraMuri();
         mappa.getChildren().clear();
         porte.reset();
         torcia = null;
@@ -292,7 +270,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         Optional<SceneEnvironment.Ambiente> ambiente = ambienti.di(scena.getId());
         ambiente.ifPresent(this::applicaAmbiente);
 
-        mappa.getChildren().add(personaggio);
+        mappa.getChildren().add(personaggio.nodo());
 
         for (String idNpc : contenuti.npc()) {
             resolver.npc(idNpc).ifPresent(this::aggiungiNpc);
@@ -336,7 +314,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         // (davanti al PC); negli altri casi compare al punto di spawn della scena.
         if (preservaPosizione) {
             preservaPosizione = false;
-            aggiornaPosizioneSprite();
+            personaggio.aggiornaSprite();
         } else {
             posizionaPersonaggioIniziale(ambiente.orElse(null));
         }
@@ -367,42 +345,33 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
             }
         }
         for (SceneEnvironment.Muro m : ambiente.muri()) {
-            muri.add(new Rectangle2D(m.x() * MAPPA_LARGHEZZA, m.y() * MAPPA_ALTEZZA,
+            personaggio.aggiungiMuro(new Rectangle2D(m.x() * MAPPA_LARGHEZZA, m.y() * MAPPA_ALTEZZA,
                     m.w() * MAPPA_LARGHEZZA, m.h() * MAPPA_ALTEZZA));
         }
     }
 
     private void posizionaPersonaggioIniziale(SceneEnvironment.Ambiente ambiente) {
+        double x;
+        double y;
         if (isCortileCapitolo3(engine.getScenaCorrente())) {
             // Si esce dal Polo A: il giocatore compare davanti alla sua porta.
-            posX = Porte.CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
-            posY = (Porte.CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
+            x = Porte.CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
+            y = (Porte.CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - Personaggio.LATO / 2;
         } else if ("aula_la1".equals(engine.getScenaCorrente().getId())) {
             // Entrando in aula LA1 (in qualsiasi capitolo) il giocatore compare davanti
             // alla porta in basso a destra, dove si trova l'uscita verso il cortile.
             // L'avvio del capitolo 3 fa eccezione: lì la posizione (davanti al PC) è
             // conservata a monte da preservaPosizione, senza passare di qui.
-            posX = Porte.AULA_LA1_PORTA_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
-            posY = Porte.AULA_LA1_PORTA_Y * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
+            x = Porte.AULA_LA1_PORTA_X * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
+            y = Porte.AULA_LA1_PORTA_Y * MAPPA_ALTEZZA - Personaggio.LATO / 2;
         } else if (ambiente != null) {
-            posX = ambiente.spawnX() * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
-            posY = ambiente.spawnY() * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
+            x = ambiente.spawnX() * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
+            y = ambiente.spawnY() * MAPPA_ALTEZZA - Personaggio.LATO / 2;
         } else {
-            posX = (MAPPA_LARGHEZZA - LATO_PERSONAGGIO) / 2;
-            posY = MAPPA_ALTEZZA - LATO_PERSONAGGIO - 8;
+            x = (MAPPA_LARGHEZZA - Personaggio.LATO) / 2;
+            y = MAPPA_ALTEZZA - Personaggio.LATO - 8;
         }
-        aggiornaPosizioneSprite();
-    }
-
-    /**
-     * Allinea lo sprite alla posizione logica: centrato in orizzontale sul
-     * riquadro di collisione e appoggiato col suo bordo inferiore alla base del
-     * riquadro, così che i "piedi" coincidano col punto di collisione.
-     */
-    private void aggiornaPosizioneSprite() {
-        double larghezzaSprite = sprite.larghezzaPer(ALTEZZA_SPRITE);
-        personaggio.setLayoutX(posX + (LATO_PERSONAGGIO - larghezzaSprite) / 2);
-        personaggio.setLayoutY(posY + LATO_PERSONAGGIO - ALTEZZA_SPRITE);
+        personaggio.posiziona(x, y);
     }
 
     private void aggiungiNpc(Npc npc) {
@@ -599,7 +568,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     @Override
     public void aggiornaTorcia() {
         if (torcia != null) {
-            torcia.centraSu(posX + LATO_PERSONAGGIO / 2.0, posY + LATO_PERSONAGGIO / 2.0);
+            torcia.centraSu(personaggio.centroX(), personaggio.centroY());
         }
     }
 
@@ -667,148 +636,22 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     }
 
     // ----------------------------------------------------------------------
-    // Movimento e prossimita'
+    // Input: interazione e pausa (il movimento vive nel Personaggio)
     // ----------------------------------------------------------------------
 
-    private AnimationTimer creaCicloDiGioco() {
-        return new AnimationTimer() {
-            @Override
-            public void handle(long now) {
-                if (overlayCorrente != null || engine.isInPausa()) {
-                    return;
-                }
-                double dx = 0;
-                double dy = 0;
-                if (tastiPremuti.contains(KeyCode.W)) {
-                    dy -= VELOCITA;
-                }
-                if (tastiPremuti.contains(KeyCode.S)) {
-                    dy += VELOCITA;
-                }
-                if (tastiPremuti.contains(KeyCode.A)) {
-                    dx -= VELOCITA;
-                }
-                if (tastiPremuti.contains(KeyCode.D)) {
-                    dx += VELOCITA;
-                }
-                // Spostamento separato sui due assi: cosi' il personaggio scivola
-                // lungo un muro invece di bloccarsi del tutto contro uno spigolo.
-                if (dx != 0) {
-                    double nuovaX = clamp(posX + dx, MAPPA_LARGHEZZA - LATO_PERSONAGGIO);
-                    if (!collisioni.collide(nuovaX, posY)) {
-                        posX = nuovaX;
-                    }
-                }
-                if (dy != 0) {
-                    double nuovaY = clamp(posY + dy, MAPPA_ALTEZZA - LATO_PERSONAGGIO);
-                    if (!collisioni.collide(posX, nuovaY)) {
-                        posY = nuovaY;
-                    }
-                }
-                if (dx != 0 || dy != 0) {
-                    aggiornaDirezione(dx, dy);
-                    aggiornaPosizioneSprite();
-                    aggiornaTorcia();
-                }
-                aggiornaElementoVicino();
-            }
-        };
-    }
-
     /**
-     * Aggiorna la direzione dello sprite in base allo spostamento, dando
-     * priorità all'asse orizzontale, e cambia la cella mostrata solo se la
-     * direzione è effettivamente cambiata.
+     * Reazione al tasto E, delegata dal {@link Personaggio}: con un dialogo aperto
+     * lo fa avanzare (completa il testo o lo chiude); altrimenti, se nulla è in
+     * sovrimpressione e fuori dalla pausa, attiva l'elemento più vicino.
      */
-    private void aggiornaDirezione(double dx, double dy) {
-        CharacterSprite.Direzione nuova;
-        if (dx > 0) {
-            nuova = CharacterSprite.Direzione.DESTRA;
-        } else if (dx < 0) {
-            nuova = CharacterSprite.Direzione.SINISTRA;
-        } else if (dy < 0) {
-            nuova = CharacterSprite.Direzione.SU;
-        } else {
-            nuova = CharacterSprite.Direzione.GIU;
-        }
-        if (nuova != direzione) {
-            direzione = nuova;
-            personaggio.setViewport(sprite.viewport(direzione));
-        }
-    }
-
-    /**
-     * Individua l'elemento piu' vicino al personaggio entro il raggio di
-     * interazione e aggiorna il suggerimento a schermo.
-     */
-    private void aggiornaElementoVicino() {
-        double centroX = posX + LATO_PERSONAGGIO / 2;
-        double centroY = posY + LATO_PERSONAGGIO / 2;
-        ElementoScena piuVicino = null;
-        double minDistanza = RAGGIO_INTERAZIONE;
-        for (ElementoScena e : elementi) {
-            double distanza = Math.hypot(centroX - e.x, centroY - e.y);
-            if (distanza <= minDistanza) {
-                minDistanza = distanza;
-                piuVicino = e;
-            }
-        }
-        if (piuVicino != elementoVicino) {
-            evidenzia(elementoVicino, false);
-            evidenzia(piuVicino, true);
-            elementoVicino = piuVicino;
-        }
-        suggerimento.setText(piuVicino == null ? "" : "▲ Premi E — " + piuVicino.etichettaAzione);
-    }
-
-    private void evidenzia(ElementoScena e, boolean attivo) {
-        if (e != null) {
-            e.evidenzia(attivo);
-        }
-    }
-
-    private double clamp(double valore, double massimo) {
-        return Math.max(0, Math.min(valore, massimo));
-    }
-
-    /**
-     * Collega la cattura dei tasti alla scena quando la vista vi viene inserita e
-     * la scollega (fermando il ciclo) quando viene rimossa, evitando dispersioni.
-     */
-    private void collegaInputAllaScena() {
-        root.sceneProperty().addListener((obs, vecchia, nuova) -> {
-            if (nuova != null) {
-                abilitaInput(nuova);
-                ciclo.start();
-            } else {
-                if (vecchia != null) {
-                    vecchia.setOnKeyPressed(null);
-                    vecchia.setOnKeyReleased(null);
-                }
-                ciclo.stop();
-            }
-        });
-    }
-
-    private void abilitaInput(javafx.scene.Scene scena) {
-        scena.setOnKeyPressed(e -> {
-            switch (e.getCode()) {
-                case E -> interagisci();
-                case ESCAPE -> gestisciEscape();
-                default -> tastiPremuti.add(e.getCode());
-            }
-        });
-        scena.setOnKeyReleased(e -> tastiPremuti.remove(e.getCode()));
-    }
-
     private void interagisci() {
-        // Con un dialogo aperto, E lo fa avanzare (completa il testo o lo chiude).
         if (avanzamentoDialogo != null) {
             avanzamentoDialogo.run();
             return;
         }
-        if (overlayCorrente == null && !engine.isInPausa() && elementoVicino != null) {
-            elementoVicino.azione.run();
+        ElementoScena vicino = personaggio.vicino();
+        if (overlayCorrente == null && !engine.isInPausa() && vicino != null) {
+            vicino.azione.run();
         }
     }
 
@@ -1257,7 +1100,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         chiudiOverlay();
         overlayCorrente = velo;
         overlayChiudibile = chiudibile;
-        tastiPremuti.clear();
+        personaggio.azzeraTasti();
         root.getChildren().add(velo);
     }
 
@@ -1441,14 +1284,11 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         if (elemento.etichettaNodo != null) {
             mappa.getChildren().remove(elemento.etichettaNodo);
         }
-        if (elementoVicino == elemento) {
-            elementoVicino = null;
-            suggerimento.setText("");
-        }
+        personaggio.dimenticaSeVicino(elemento);
     }
 
     private void vaiAlMenu() {
-        ciclo.stop();
+        personaggio.fermaCiclo();
         engine.removeListener(this);
         context.navigator().mostra(new HomeView(context).getRoot());
     }
