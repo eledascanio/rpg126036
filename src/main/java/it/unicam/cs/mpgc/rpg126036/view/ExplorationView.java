@@ -125,16 +125,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     // che riprende l'aula LA1 esattamente come si era concluso il capitolo 2.
     private boolean preservaPosizione;
 
-    // Un solo pannello modale alla volta in sovrimpressione.
-    private Node overlayCorrente;
-    private boolean overlayChiudibile;
+    // Pannelli modali in sovrimpressione (dialoghi, messaggi, enigmi, pausa, fine
+    // capitolo): meccanismo isolato che tiene un solo overlay e l'eventuale dialogo.
+    private final GestoreOverlay gestoreOverlay;
     // Traguardo appena sbloccato e in attesa di essere annunciato col dialog box, al
     // termine dell'interazione che lo ha generato (come l'annuncio "Nuovo indizio").
     private Achievement traguardoPendente;
-
-    // Dialogo NPC eventualmente in corso: animazione e azione di avanzamento/chiusura.
-    private Timeline dialogoMacchina;
-    private Runnable avanzamentoDialogo;
 
     public ExplorationView(AppContext context, GameSession session) {
         this.context = Objects.requireNonNull(context, "Il contesto non puo' essere nullo.");
@@ -151,11 +147,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         this.pensieri = new Pensieri(this, stato, engine, porte);
         this.personaggio = new Personaggio(new CharacterSprite(stato.getPlayer().getClasse()),
                 MAPPA_LARGHEZZA, MAPPA_ALTEZZA, elementi, suggerimento,
-                () -> overlayCorrente == null && !engine.isInPausa(),
+                this::puoMuoversi,
                 this::aggiornaTorcia, this::interagisci, this::gestisciEscape);
 
         root = new StackPane(costruisciLayout());
         root.getStyleClass().add("screen-root");
+        this.gestoreOverlay = new GestoreOverlay(root, personaggio::azzeraTasti);
         aggiungiPulsanteInventario();
 
         personaggio.collegaA(root);
@@ -552,13 +549,20 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      * lo fa avanzare (completa il testo o lo chiude); altrimenti, se nulla è in
      * sovrimpressione e fuori dalla pausa, attiva l'elemento più vicino.
      */
+    /**
+     * @return {@code true} se il personaggio può muoversi: nessun overlay aperto e
+     *         gioco non in pausa. Interrogato dal ciclo di gioco del {@link Personaggio}.
+     */
+    private boolean puoMuoversi() {
+        return !gestoreOverlay.isAperto() && !engine.isInPausa();
+    }
+
     private void interagisci() {
-        if (avanzamentoDialogo != null) {
-            avanzamentoDialogo.run();
+        if (gestoreOverlay.avanzaDialogoSePresente()) {
             return;
         }
         ElementoScena vicino = personaggio.vicino();
-        if (overlayCorrente == null && !engine.isInPausa() && vicino != null) {
+        if (puoMuoversi() && vicino != null) {
             vicino.azione.run();
         }
     }
@@ -566,8 +570,8 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private void gestisciEscape() {
         if (engine.isInPausa()) {
             engine.riprendi();
-        } else if (overlayCorrente != null) {
-            if (overlayChiudibile) {
+        } else if (gestoreOverlay.isAperto()) {
+            if (gestoreOverlay.isChiudibile()) {
                 chiudiOverlay();
             }
         } else {
@@ -627,7 +631,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      * perciò in quel caso il cartello viene saltato.
      */
     private void mostraCartelloScenaCorrente() {
-        if (engine.isPartitaTerminata() || overlayCorrente != null) {
+        if (engine.isPartitaTerminata() || gestoreOverlay.isAperto()) {
             return;
         }
         String titolo = engine.getScenaCorrente().getTitolo();
@@ -665,7 +669,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         libro.getStyleClass().add("book-button");
         libro.setFocusTraversable(false);
         libro.setOnAction(e -> {
-            if (overlayCorrente == null && !engine.isInPausa()) {
+            if (puoMuoversi()) {
                 mostraInventario();
             }
         });
@@ -759,28 +763,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      */
     @Override
     public void mostraDialogo(String nome, String testo) {
-        mostraDialogo(nome, testo, this::chiudiOverlay, List.of());
+        gestoreOverlay.mostraDialogo(nome, testo);
     }
 
-    /**
-     * Variante completa del dialog box. Quando il testo è interamente rivelato:
-     * se {@code opzioni} è vuota un ulteriore input (E o clic) esegue {@code alTermine}
-     * (di norma la chiusura); altrimenti compaiono i pulsanti di scelta e l'avanzamento
-     * da tastiera/clic diventa inerte (si prosegue scegliendo un'opzione).
-     *
-     * @param nome     nome dell'NPC mostrato in alto
-     * @param testo    battuta rivelata a macchina da scrivere
-     * @param alTermine azione eseguita al termine quando non ci sono scelte
-     * @param opzioni  le scelte proposte al termine (eventualmente vuote)
-     */
     @Override
     public void mostraDialogo(String nome, String testo, Runnable alTermine, List<OpzioneDialogo> opzioni) {
-        DialogoBox.Sessione dialogo = DialogoBox.crea(root, nome, testo, alTermine, opzioni);
-        // I campi vanno impostati dopo mostraOverlay, che azzera lo stato precedente.
-        mostraOverlay(dialogo.nodo(), true);
-        dialogoMacchina = dialogo.macchina();
-        avanzamentoDialogo = dialogo.avanzamento();
-        dialogo.avvia();
+        gestoreOverlay.mostraDialogo(nome, testo, alTermine, opzioni);
     }
 
     @Override
@@ -889,7 +877,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
             return;
         }
         engine.verificaUpgradeDisponibile();
-        if (overlayCorrente == null) {
+        if (!gestoreOverlay.isAperto()) {
             verificaCompletamentoCapitolo();
         }
     }
@@ -986,18 +974,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     @Override
     public StackPane velo(Node contenuto) {
-        StackPane overlay = new StackPane(contenuto);
-        overlay.getStyleClass().add("overlay-veil");
-        return overlay;
+        return gestoreOverlay.velo(contenuto);
     }
 
     @Override
     public void mostraOverlay(Node velo, boolean chiudibile) {
-        chiudiOverlay();
-        overlayCorrente = velo;
-        overlayChiudibile = chiudibile;
-        personaggio.azzeraTasti();
-        root.getChildren().add(velo);
+        gestoreOverlay.mostra(velo, chiudibile);
     }
 
     /**
@@ -1029,16 +1011,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     @Override
     public void chiudiOverlay() {
-        // Ferma l'eventuale dialogo in corso prima di rimuovere il pannello.
-        if (dialogoMacchina != null) {
-            dialogoMacchina.stop();
-            dialogoMacchina = null;
-        }
-        avanzamentoDialogo = null;
-        if (overlayCorrente != null) {
-            root.getChildren().remove(overlayCorrente);
-            overlayCorrente = null;
-        }
+        gestoreOverlay.chiudi();
     }
 
     // ----------------------------------------------------------------------
@@ -1099,7 +1072,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private void verificaCompletamentoCapitolo() {
         // Un overlay aperto (es. la schermata dell'email) attende l'azione dell'utente:
         // non concludere il capitolo finché non viene chiuso col "Continua".
-        if (overlayCorrente != null) {
+        if (gestoreOverlay.isAperto()) {
             return;
         }
         Scene scena = engine.getScenaCorrente();
