@@ -86,19 +86,12 @@ public class ExplorationView implements GameListener {
     private static final int COSTO_ENERGIA_DIALOGO = 10;
     // Le regole numeriche dell'enigma del PC della vittima (binario, soluzione, costi,
     // XP) vivono in PcVittimaPuzzle: la vista vi applica gli effetti, non li ridefinisce.
-    // Posizioni delle porte degli edifici sul cortile (frazioni della mappa): Polo A
-    // a sinistra, Polo B a destra, alla stessa altezza sulle facciate.
-    private static final double CORTILE_PORTA_A_X = 0.20;
-    private static final double CORTILE_PORTA_B_X = 0.80;
-    private static final double CORTILE_PORTE_Y = 0.60;
     // Posizione dell'addetto alle pulizie nel cortile (capitolo 3): davanti al Polo B,
     // di lato rispetto alla porta e un po' arretrato verso la facciata.
     private static final double POLO_B_NPC_X = 0.73;
     private static final double POLO_B_NPC_Y = 0.58;
     // XP guadagnati convincendo l'addetto ad aprire la porta dell'Aula B.
     private static final int ADDETTO_XP = 60;
-    // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
-    private static final int COSTO_FORZA_PORTA_AULA_B = 30;
 
     private final AppContext context;
     private final GameEngine engine;
@@ -131,11 +124,9 @@ public class ExplorationView implements GameListener {
     private double posX = (MAPPA_LARGHEZZA - LATO_PERSONAGGIO) / 2;
     private double posY = (MAPPA_ALTEZZA - LATO_PERSONAGGIO) / 2;
     private ElementoScena elementoVicino;
-    // Porte del cortile (capitolo 1): la porta del Polo A nasconde l'enigma del
-    // laboratorio (si rivela solo a enigma sbloccato), la porta del Polo B resta
-    // sempre inaccessibile. Nulle nelle scene che non le prevedono.
-    private ElementoScena portaPoloA;
-    private ElementoScena portaPoloB;
+    // Porte degli edifici (Polo A/B del cortile e uscite a porta invisibili): la
+    // trama delle porte vive qui, pilotata dalla scena che le offre i servizi.
+    private final Porte porte;
     // Enigma del PC della vittima (capitolo 2): detiene le regole (binario, costi, XP)
     // e lo stato di risoluzione. La vista ne applica gli effetti invece di duplicarli.
     private PcVittimaPuzzle pcPuzzle;
@@ -185,6 +176,7 @@ public class ExplorationView implements GameListener {
         this.resolver = context.contentResolver();
         this.sprite = new CharacterSprite(stato.getPlayer().getClasse());
         this.aulaB = new AulaB(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        this.porte = new Porte(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
 
         root = new StackPane(costruisciLayout());
         root.getStyleClass().add("screen-root");
@@ -281,8 +273,7 @@ public class ExplorationView implements GameListener {
         elementi.clear();
         muri.clear();
         mappa.getChildren().clear();
-        portaPoloA = null;
-        portaPoloB = null;
+        porte.reset();
         torcia = null;
         animazioniScena.forEach(Timeline::stop);
         animazioniScena.clear();
@@ -330,16 +321,16 @@ public class ExplorationView implements GameListener {
             if (isAulaLa1Capitolo3(scena)) {
                 // Capitolo 3: l'uscita non è un elemento visibile ma la porta in
                 // basso a destra, a cui avvicinarsi per tornare nel cortile.
-                aggiungiPortaUscita(transizione, 0.855, 0.84);
+                porte.aggiungiPortaUscita(transizione, 0.855, 0.84);
             } else if (isCortileCapitolo3(scena)) {
                 // Capitolo 3: anche le uscite del cortile sono porte invisibili sulle
                 // facciate. Il Polo A (rientro in aula LA1) a sinistra è un'uscita
                 // diretta; il Polo B (Aula B) a destra è invece sbarrato: si apre solo
                 // se l'addetto ha aiutato, altrimenti va forzato.
                 if ("aula_la1".equals(transizione.idDestinazione())) {
-                    aggiungiPortaUscita(transizione, CORTILE_PORTA_A_X, CORTILE_PORTE_Y);
+                    porte.aggiungiPortaUscita(transizione, Porte.CORTILE_PORTA_A_X, Porte.CORTILE_PORTE_Y);
                 } else {
-                    aggiungiPortaPoloB(transizione);
+                    porte.aggiungiPortaPoloB(transizione);
                 }
             } else {
                 aggiungiUscita(transizione);
@@ -357,7 +348,7 @@ public class ExplorationView implements GameListener {
         }
         // Le porte del cortile hanno posizione fissa sulle facciate degli edifici:
         // vanno collocate dopo la disposizione a slot.
-        posizionaPorteCortile();
+        porte.posizionaCortile();
         // L'Aula B aggiunge l'effetto torcia e i luccichii degli indizi sopra il resto.
         if (isAulaBCapitolo3(scena)) {
             aulaB.costruisci();
@@ -390,8 +381,8 @@ public class ExplorationView implements GameListener {
     private void posizionaPersonaggioIniziale(SceneEnvironment.Ambiente ambiente) {
         if (isCortileCapitolo3(engine.getScenaCorrente())) {
             // Si esce dal Polo A: il giocatore compare davanti alla sua porta.
-            posX = CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
-            posY = (CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
+            posX = Porte.CORTILE_PORTA_A_X * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
+            posY = (Porte.CORTILE_PORTE_Y + 0.06) * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
         } else if (ambiente != null) {
             posX = ambiente.spawnX() * MAPPA_LARGHEZZA - LATO_PERSONAGGIO / 2;
             posY = ambiente.spawnY() * MAPPA_ALTEZZA - LATO_PERSONAGGIO / 2;
@@ -485,8 +476,8 @@ public class ExplorationView implements GameListener {
         // visibile e risolvibile solo dopo aver raccolto la chiave e ottenuto
         // l'indizio su Alex Kaur. Lo affianca la porta — sempre bloccata — del Polo B.
         if ("porta_laboratorio".equals(idEnigma)) {
-            aggiungiPortaPoloA(puzzle);
-            aggiungiPortaPoloB();
+            porte.aggiungiPortaPoloA(puzzle);
+            porte.aggiungiPortaPoloB();
             return;
         }
         // Il PC della vittima è uno dei sei computer del laboratorio: il PC giusto
@@ -717,80 +708,17 @@ public class ExplorationView implements GameListener {
     }
 
     /**
-     * Crea la porta del laboratorio (Polo A) come elemento-enigma a posizione fissa.
-     * Resta un enigma a tutti gli effetti — blocca la conclusione del capitolo finché
-     * non risolto — e il suo nodo è sempre invisibile (la porta è sullo sfondo): a
-     * cambiare è solo l'interazione. Prima dello sblocco mostra un avviso; dopo aver
-     * raccolto la chiave e ottenuto l'indizio su Alex Kaur apre l'enigma.
-     */
-    private void aggiungiPortaPoloA(Puzzle puzzle) {
-        ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "",
-                "Esamina la porta del Polo A", Color.web("#9b59b6"));
-        e.puzzle = puzzle;
-        e.posizioneFissa = true;
-        e.azione = () -> {
-            if (isEnigmaPortaSbloccato()) {
-                mostraEnigma(puzzle, e);
-            } else {
-                mostraDialogo("", "Non puoi ancora entrare qui.");
-            }
-        };
-        e.setVisibile(false);
-        portaPoloA = e;
-        registra(e);
-    }
-
-    /**
-     * Crea la porta del Polo B: in questo capitolo è sempre inaccessibile, perciò
-     * interagendovi si ottiene solo l'avviso. Non è un enigma e quindi non incide
-     * sulla conclusione del capitolo.
-     */
-    private void aggiungiPortaPoloB() {
-        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
-                "Esamina la porta del Polo B", Color.web("#9b59b6"));
-        e.posizioneFissa = true;
-        e.azione = () -> mostraDialogo("", "Non puoi ancora entrare qui.");
-        e.setVisibile(false);
-        portaPoloB = e;
-        registra(e);
-    }
-
-    /**
-     * @return {@code true} se la porta del laboratorio (Polo A) è sbloccata, ossia
-     *         il giocatore ha raccolto la chiave e ottenuto l'indizio su Alex Kaur
-     */
-    private boolean isEnigmaPortaSbloccato() {
-        Player player = stato.getPlayer();
-        return player.getInventario().contiene(ItemCatalog.ID_CHIAVE_CAPITOLO1)
-                && player.getDiario().contiene(ClueCatalog.ID_ALEX_KAUR);
-    }
-
-    /**
      * Mostra una sola volta il pensiero che indirizza verso il PC di Antonio, non
      * appena il giocatore possiede sia la chiave sia l'indizio su Alex Kaur (in
      * qualunque ordine abbia compiuto le due azioni).
      */
     private void forsePensieroIndagine() {
-        if (!pensieroIndagineMostrato && isEnigmaPortaSbloccato()) {
+        if (!pensieroIndagineMostrato && porte.isEnigmaPortaSbloccato()) {
             pensieroIndagineMostrato = true;
             mostraDialogo(stato.getPlayer().getNome(),
                     "Quel ragazzo ha detto di aver visto Antonio litigare con Alex… ma perché "
                             + "l'aggressore avrebbe dovuto rubargli le chiavi? Mi servono altre "
                             + "informazioni… forse riesco a controllare il PC di Antonio al Polo A.");
-        }
-    }
-
-    /**
-     * Colloca le porte degli edifici sulle rispettive facciate (Polo A a sinistra,
-     * Polo B a destra), appena davanti all'ingresso e fuori dai muri, così da
-     * restare raggiungibili dal pavimento della piazza.
-     */
-    private void posizionaPorteCortile() {
-        if (portaPoloA != null) {
-            portaPoloA.posiziona(CORTILE_PORTA_A_X * MAPPA_LARGHEZZA, CORTILE_PORTE_Y * MAPPA_ALTEZZA);
-        }
-        if (portaPoloB != null) {
-            portaPoloB.posiziona(CORTILE_PORTA_B_X * MAPPA_LARGHEZZA, CORTILE_PORTE_Y * MAPPA_ALTEZZA);
         }
     }
 
@@ -861,66 +789,6 @@ public class ExplorationView implements GameListener {
     boolean isAulaBCapitolo3(Scene scena) {
         return "aula_b".equals(scena.getId())
                 && "capitolo3".equals(engine.getCapitoloCorrente().getId());
-    }
-
-    /**
-     * Aggiunge l'uscita come porta invisibile a posizione fissa: non c'è nulla di
-     * visibile sulla mappa, ci si avvicina al punto della porta e con E si segue la
-     * transizione. Usata per l'uscita dall'aula LA1 (capitolo 3) verso il cortile.
-     *
-     * @param transizione la transizione da seguire interagendo con la porta
-     * @param fx          ascissa della porta in frazione della larghezza (0..1)
-     * @param fy          ordinata della porta in frazione dell'altezza (0..1)
-     */
-    private void aggiungiPortaUscita(Transition transizione, double fx, double fy) {
-        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
-                transizione.etichetta(), Color.web("#2ecc71"));
-        e.posizioneFissa = true;
-        e.azione = () -> usaUscita(transizione);
-        e.setVisibile(false);
-        registra(e);
-        e.posiziona(fx * MAPPA_LARGHEZZA, fy * MAPPA_ALTEZZA);
-    }
-
-    /**
-     * Porta del Polo B nel cortile (capitolo 3): invisibile e a posizione fissa sulla
-     * facciata. È sbarrata: si attraversa liberamente solo se l'addetto alle pulizie
-     * ha aperto la porta laterale; altrimenti propone di forzarla a costo di energia.
-     */
-    private void aggiungiPortaPoloB(Transition transizione) {
-        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
-                transizione.etichetta(), Color.web("#2ecc71"));
-        e.posizioneFissa = true;
-        e.azione = () -> interagisciPortaPoloB(transizione);
-        e.setVisibile(false);
-        registra(e);
-        e.posiziona(CORTILE_PORTA_B_X * MAPPA_LARGHEZZA, CORTILE_PORTE_Y * MAPPA_ALTEZZA);
-    }
-
-    /**
-     * Interazione con la porta del Polo B: se l'addetto l'ha già aperta si entra
-     * direttamente, altrimenti la porta risulta bloccata e si può scegliere di forzarla.
-     */
-    private void interagisciPortaPoloB(Transition transizione) {
-        if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
-            usaUscita(transizione);
-            return;
-        }
-        mostraDialogo("", "La porta dell'aula risulta bloccata. Vuoi forzare la porta?",
-                this::chiudiOverlay, List.of(
-                        new OpzioneDialogo("Forza la porta", () -> forzaPortaPoloB(transizione)),
-                        new OpzioneDialogo("Lascia stare", this::chiudiOverlay)));
-    }
-
-    /** Forza la porta del Polo B: penalità di energia, poi (se si sopravvive) si entra. */
-    private void forzaPortaPoloB(Transition transizione) {
-        stato.getPlayer().riduciEnergia(COSTO_FORZA_PORTA_AULA_B);
-        aggiornaHud();
-        if (engine.verificaGameOver()) {
-            return;
-        }
-        chiudiOverlay();
-        usaUscita(transizione);
     }
 
     // ----------------------------------------------------------------------
@@ -1383,7 +1251,7 @@ public class ExplorationView implements GameListener {
         mostraMessaggio("Oggetto", testoRaccolta, dopoMessaggio);
     }
 
-    private void usaUscita(Transition transizione) {
+    void usaUscita(Transition transizione) {
         if (haEnigmaNonRisolto()) {
             mostraMessaggio("Passaggio bloccato",
                     "Un enigma sbarra ancora la strada: risolvilo prima di proseguire.");
@@ -1651,7 +1519,7 @@ public class ExplorationView implements GameListener {
         dialogo.avvia();
     }
 
-    private void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
+    void mostraEnigma(Puzzle puzzle, ElementoScena elemento) {
         if (puzzle.isRisolto()) {
             mostraMessaggio("Enigma", "Hai già superato questo enigma.");
             return;
