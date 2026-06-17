@@ -30,7 +30,6 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ProgressBar;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -85,13 +84,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private final ContentResolver resolver;
     private final StackPane root;
 
-    // HUD.
-    private final ProgressBar barraEnergia = new ProgressBar();
-    private final Label valoreEnergia = new Label();
-    private final Label valoreXp = new Label();
+    // Barra di stato (energia, XP, statistiche): costruzione e aggiornamento isolati.
+    private final HudEsplorazione hud = new HudEsplorazione();
+    // Titolo della scena (sopra la mappa) e suggerimento di interazione (in basso):
+    // legati alla scena corrente, restano qui.
     private final Label titoloScena = new Label();
     private final Label suggerimento = new Label();
-    private final HBox statistiche = new HBox(16);
 
     // Mappa e movimento.
     private final Pane mappa = new Pane();
@@ -174,28 +172,10 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     private BorderPane costruisciLayout() {
         BorderPane radice = new BorderPane();
-        radice.setTop(costruisciHud());
+        radice.setTop(hud.costruisci());
         radice.setCenter(costruisciMappa());
         radice.setBottom(costruisciBarraInferiore());
         return radice;
-    }
-
-    private Node costruisciHud() {
-        barraEnergia.setPrefWidth(180);
-        valoreEnergia.getStyleClass().add("hud-text");
-        valoreXp.getStyleClass().add("hud-text");
-        Label etichettaEnergia = new Label("⚡ Energia");
-        etichettaEnergia.getStyleClass().add("hud-text");
-
-        VBox sinistra = new VBox(4, etichettaEnergia, new HBox(8, barraEnergia, valoreEnergia), valoreXp);
-        statistiche.setAlignment(Pos.CENTER_RIGHT);
-
-        Region spazio = new Region();
-        HBox.setHgrow(spazio, Priority.ALWAYS);
-        HBox hud = new HBox(sinistra, spazio, statistiche);
-        hud.setAlignment(Pos.CENTER_LEFT);
-        hud.getStyleClass().add("hud-bar");
-        return hud;
     }
 
     private Node costruisciMappa() {
@@ -930,7 +910,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
         Player player = stato.getPlayer();
         for (StatType tipo : StatType.values()) {
-            Button scelta = new Button(icona(tipo) + " " + tipo.getNomeVisualizzato()
+            Button scelta = new Button(tipo.getIcona() + " " + tipo.getNomeVisualizzato()
                     + " (attuale: " + player.getStatistica(tipo) + ")");
             scelta.getStyleClass().add("game-button");
             scelta.setMaxWidth(360);
@@ -1067,19 +1047,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     @Override
     public void aggiornaHud() {
-        Player player = stato.getPlayer();
-        int energia = engine.getEnergia();
-        barraEnergia.setProgress((double) energia / Player.ENERGIA_MASSIMA);
-        barraEnergia.setStyle("-fx-accent: " + coloreEnergia(energia) + ";");
-        valoreEnergia.setText(energia + " / " + Player.ENERGIA_MASSIMA);
-        valoreXp.setText("XP: " + player.getXp() + " / " + Player.COSTO_XP_POTENZIAMENTO);
-
-        statistiche.getChildren().clear();
-        for (StatType tipo : StatType.values()) {
-            Label stat = new Label(icona(tipo) + " " + player.getStatistica(tipo));
-            stat.getStyleClass().add("hud-stat");
-            statistiche.getChildren().add(stat);
-        }
+        hud.aggiorna(engine.getEnergia(), stato.getPlayer());
     }
 
     @Override
@@ -1194,24 +1162,6 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         personaggio.fermaCiclo();
         engine.removeListener(this);
         context.navigator().mostra(new HomeView(context).getRoot());
-    }
-
-    private String coloreEnergia(int energia) {
-        if (energia > 50) {
-            return "#2ecc71";
-        }
-        if (energia > 20) {
-            return "#e67e22";
-        }
-        return "#c0392b";
-    }
-
-    private String icona(StatType tipo) {
-        return switch (tipo) {
-            case INVESTIGAZIONE -> "🔍";
-            case CARISMA -> "💬";
-            case INTUIZIONE -> "💡";
-        };
     }
 
     /**
