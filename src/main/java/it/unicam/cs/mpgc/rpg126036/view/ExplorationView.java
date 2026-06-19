@@ -346,18 +346,18 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         ImageView sprite = caricaSprite("/images/sprite/npc/" + npc.getId() + ".png", ALTEZZA_NPC);
         // Con lo sprite dedicato l'NPC si mostra come immagine, senza il nome sotto;
         // senza sprite si ripiega sul segnaposto colorato con nome.
-        ElementoScena e = (sprite != null)
+        ElementoScena elemento = (sprite != null)
                 ? new ElementoScena(TipoElemento.NPC, etichettaAzione, sprite)
                 : new ElementoScena(TipoElemento.NPC, npc.getNome(), etichettaAzione, Color.web("#4a90d9"));
         // La scelta del dialogo (standard o su misura) è interna a DialoghiNpc: la
         // schermata avvia sempre il dialogo dell'NPC senza conoscerne i casi speciali.
-        e.azione = () -> dialoghi.dialoga(npc);
-        registra(e);
+        elemento.azione = () -> dialoghi.dialoga(npc);
+        registra(elemento);
         // L'addetto alle pulizie del cortile (capitolo 3) ha posizione fissa accanto
         // al Polo B, fuori dalla disposizione automatica a slot.
         if ("addetto_pulizie".equals(npc.getId())) {
-            e.posizioneFissa = true;
-            e.posiziona(POLO_B_NPC_X * MAPPA_LARGHEZZA, POLO_B_NPC_Y * MAPPA_ALTEZZA);
+            elemento.posizioneFissa = true;
+            elemento.posiziona(POLO_B_NPC_X * MAPPA_LARGHEZZA, POLO_B_NPC_Y * MAPPA_ALTEZZA);
         }
     }
 
@@ -370,12 +370,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
                 : "Raccogli " + item.nome();
         ImageView sprite = caricaSprite("/images/sprite/oggetti/" + item.id() + ".png", ALTEZZA_OGGETTO);
         // Con lo sprite dedicato l'oggetto si mostra come immagine, senza il nome
-        // sotto; senza sprite si ripiega sul vecchio segnaposto colorato con nome.
-        ElementoScena e = (sprite != null)
+        // sotto; senza sprite si ripiega sul segnaposto colorato con nome.
+        ElementoScena elemento = (sprite != null)
                 ? new ElementoScena(TipoElemento.OGGETTO, etichettaAzione, sprite)
                 : new ElementoScena(TipoElemento.OGGETTO, item.nome(), etichettaAzione, Color.web("#e0c43a"));
-        e.azione = () -> raccogliOggetto(oggetto, e);
-        registra(e);
+        elemento.azione = () -> raccogliOggetto(oggetto, elemento);
+        registra(elemento);
     }
 
     /**
@@ -404,18 +404,18 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     }
 
     private void aggiungiUscita(Transition transizione) {
-        ElementoScena e = new ElementoScena(TipoElemento.USCITA, transizione.etichetta(),
+        ElementoScena elemento = new ElementoScena(TipoElemento.USCITA, transizione.etichetta(),
                 transizione.etichetta(), Color.web("#2ecc71"));
-        e.azione = () -> usaUscita(transizione);
-        registra(e);
+        elemento.azione = () -> usaUscita(transizione);
+        registra(elemento);
     }
 
     @Override
-    public void registra(ElementoScena e) {
-        elementi.add(e);
-        mappa.getChildren().add(e.nodo);
-        if (e.etichettaNodo != null) {
-            mappa.getChildren().add(e.etichettaNodo);
+    public void registra(ElementoScena elemento) {
+        elementi.add(elemento);
+        mappa.getChildren().add(elemento.nodo);
+        if (elemento.etichettaNodo != null) {
+            mappa.getChildren().add(elemento.etichettaNodo);
         }
     }
 

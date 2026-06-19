@@ -106,12 +106,12 @@ final class PcVittima {
         int indiceCorretto = posizioni.length - 1;
         for (int i = 0; i < posizioni.length; i++) {
             boolean corretto = (i == indiceCorretto);
-            ElementoScena e = new ElementoScena(TipoElemento.PORTA, "", "Esamina il PC", Color.web("#9b59b6"));
-            e.posizioneFissa = true;
-            e.azione = corretto ? () -> apriPc(e) : this::pcSbagliato;
-            e.setVisibile(false);
-            view.registra(e);
-            e.posiziona(posizioni[i][0] * larghezzaMappa, posizioni[i][1] * altezzaMappa);
+            ElementoScena elemento = new ElementoScena(TipoElemento.PORTA, "", "Esamina il PC", Color.web("#9b59b6"));
+            elemento.posizioneFissa = true;
+            elemento.azione = corretto ? () -> apriPc(elemento) : this::pcSbagliato;
+            elemento.setVisibile(false);
+            view.registra(elemento);
+            elemento.posiziona(posizioni[i][0] * larghezzaMappa, posizioni[i][1] * altezzaMappa);
         }
     }
 

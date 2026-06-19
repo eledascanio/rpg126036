@@ -163,20 +163,20 @@ final class Porte {
      * raccolto la chiave e ottenuto l'indizio su Alex Kaur apre l'enigma.
      */
     private void aggiungiPortaPoloA(Puzzle puzzle) {
-        ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "",
+        ElementoScena elemento = new ElementoScena(TipoElemento.ENIGMA, "",
                 "Esamina la porta del Polo A", Color.web("#9b59b6"));
-        e.puzzle = puzzle;
-        e.posizioneFissa = true;
-        e.azione = () -> {
+        elemento.puzzle = puzzle;
+        elemento.posizioneFissa = true;
+        elemento.azione = () -> {
             if (isEnigmaPortaSbloccato()) {
-                view.mostraEnigma(puzzle, e);
+                view.mostraEnigma(puzzle, elemento);
             } else {
                 view.mostraDialogo("", "Non puoi ancora entrare qui.");
             }
         };
-        e.setVisibile(false);
-        portaPoloA = e;
-        view.registra(e);
+        elemento.setVisibile(false);
+        portaPoloA = elemento;
+        view.registra(elemento);
     }
 
     /**
@@ -185,13 +185,13 @@ final class Porte {
      * sulla conclusione del capitolo.
      */
     private void aggiungiPortaPoloB() {
-        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
+        ElementoScena elemento = new ElementoScena(TipoElemento.PORTA, "",
                 "Esamina la porta del Polo B", Color.web("#9b59b6"));
-        e.posizioneFissa = true;
-        e.azione = () -> view.mostraDialogo("", "Non puoi ancora entrare qui.");
-        e.setVisibile(false);
-        portaPoloB = e;
-        view.registra(e);
+        elemento.posizioneFissa = true;
+        elemento.azione = () -> view.mostraDialogo("", "Non puoi ancora entrare qui.");
+        elemento.setVisibile(false);
+        portaPoloB = elemento;
+        view.registra(elemento);
     }
 
     /**
@@ -228,13 +228,13 @@ final class Porte {
      * @param fy          ordinata della porta in frazione dell'altezza (0..1)
      */
     void aggiungiPortaUscita(Transition transizione, double fx, double fy) {
-        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
+        ElementoScena elemento = new ElementoScena(TipoElemento.PORTA, "",
                 transizione.etichetta(), Color.web("#2ecc71"));
-        e.posizioneFissa = true;
-        e.azione = () -> view.usaUscita(transizione);
-        e.setVisibile(false);
-        view.registra(e);
-        e.posiziona(fx * larghezzaMappa, fy * altezzaMappa);
+        elemento.posizioneFissa = true;
+        elemento.azione = () -> view.usaUscita(transizione);
+        elemento.setVisibile(false);
+        view.registra(elemento);
+        elemento.posiziona(fx * larghezzaMappa, fy * altezzaMappa);
     }
 
     /**
@@ -243,13 +243,13 @@ final class Porte {
      * ha aperto la porta laterale; altrimenti propone di forzarla a costo di energia.
      */
     void aggiungiPortaPoloB(Transition transizione) {
-        ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
+        ElementoScena elemento = new ElementoScena(TipoElemento.PORTA, "",
                 transizione.etichetta(), Color.web("#2ecc71"));
-        e.posizioneFissa = true;
-        e.azione = () -> interagisciPortaPoloB(transizione);
-        e.setVisibile(false);
-        view.registra(e);
-        e.posiziona(CORTILE_PORTA_B_X * larghezzaMappa, CORTILE_PORTE_Y * altezzaMappa);
+        elemento.posizioneFissa = true;
+        elemento.azione = () -> interagisciPortaPoloB(transizione);
+        elemento.setVisibile(false);
+        view.registra(elemento);
+        elemento.posiziona(CORTILE_PORTA_B_X * larghezzaMappa, CORTILE_PORTE_Y * altezzaMappa);
     }
 
     /**

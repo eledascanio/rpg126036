@@ -180,13 +180,13 @@ final class AulaB {
         pulsazione.play();
         view.registraAnimazione(pulsazione);
 
-        ElementoScena e = new ElementoScena(TipoElemento.OGGETTO, etichettaAzione, luccichio);
-        e.posizioneFissa = true;
-        e.azione = azione;
-        view.registra(e);
-        e.posiziona(fx * larghezzaMappa, fy * altezzaMappa);
-        luccichii.add(e);
-        return e;
+        ElementoScena elemento = new ElementoScena(TipoElemento.OGGETTO, etichettaAzione, luccichio);
+        elemento.posizioneFissa = true;
+        elemento.azione = azione;
+        view.registra(elemento);
+        elemento.posiziona(fx * larghezzaMappa, fy * altezzaMappa);
+        luccichii.add(elemento);
+        return elemento;
     }
 
     /**
@@ -194,13 +194,13 @@ final class AulaB {
      * interattivo invisibile al centro dell'aula da cui avviare la ricerca a tentoni.
      */
     private void aggiungiPerquisizione() {
-        ElementoScena e = new ElementoScena(TipoElemento.OGGETTO, "", "Perquisisci l'aula",
+        ElementoScena elemento = new ElementoScena(TipoElemento.OGGETTO, "", "Perquisisci l'aula",
                 Color.color(0, 0, 0, 0));
-        e.posizioneFissa = true;
-        e.azione = this::mostraPerquisizione;
-        e.setVisibile(false);
-        view.registra(e);
-        e.posiziona(0.50 * larghezzaMappa, 0.55 * altezzaMappa);
+        elemento.posizioneFissa = true;
+        elemento.azione = this::mostraPerquisizione;
+        elemento.setVisibile(false);
+        view.registra(elemento);
+        elemento.posiziona(0.50 * larghezzaMappa, 0.55 * altezzaMappa);
     }
 
     /**

@@ -136,22 +136,22 @@ public class XmlSaveRepository implements SaveRepository {
     private Element serializzaGameState(Document doc, GameState stato) {
         Element root = doc.createElement("gameState");
 
-        Player p = stato.getPlayer();
+        Player giocatore = stato.getPlayer();
         Element player = doc.createElement("player");
-        player.setAttribute("nome", p.getNome());
-        player.setAttribute("classe", p.getClasse().name());
-        player.setAttribute("energia", Integer.toString(p.getEnergia()));
-        player.setAttribute("xp", Integer.toString(p.getXp()));
+        player.setAttribute("nome", giocatore.getNome());
+        player.setAttribute("classe", giocatore.getClasse().name());
+        player.setAttribute("energia", Integer.toString(giocatore.getEnergia()));
+        player.setAttribute("xp", Integer.toString(giocatore.getXp()));
         Element statistiche = doc.createElement("statistiche");
         for (StatType tipo : StatType.values()) {
             Element stat = doc.createElement("stat");
             stat.setAttribute("tipo", tipo.name());
-            stat.setAttribute("valore", Integer.toString(p.getStatistica(tipo)));
+            stat.setAttribute("valore", Integer.toString(giocatore.getStatistica(tipo)));
             statistiche.appendChild(stat);
         }
         player.appendChild(statistiche);
-        player.appendChild(serializzaInventario(doc, p));
-        player.appendChild(serializzaDiario(doc, p));
+        player.appendChild(serializzaInventario(doc, giocatore));
+        player.appendChild(serializzaDiario(doc, giocatore));
         root.appendChild(player);
 
         Element flag = doc.createElement("flag");
