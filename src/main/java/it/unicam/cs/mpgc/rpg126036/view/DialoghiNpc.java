@@ -9,7 +9,9 @@ import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.StatType;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Dialoghi con gli NPC: la battuta standard (con eventuale indizio nel diario) e le
@@ -37,6 +39,14 @@ final class DialoghiNpc {
     private final GameEngine engine;
     private final ContentResolver resolver;
 
+    // Registro degli NPC con dialogo su misura: id -> interazione dedicata. Gli NPC
+    // non elencati usano il dialogo standard. Aggiungere un NPC speciale significa
+    // aggiungere qui una voce, senza catene di if sparse nella schermata (Open/Closed).
+    private final Map<String, Consumer<Npc>> dialoghiSpeciali = Map.of(
+            "studente_ubriaco", this::conStudenteUbriaco,
+            "tecnico_laboratorio", this::conTecnico,
+            "addetto_pulizie", this::conAddetto);
+
     /**
      * @param view     la schermata di esplorazione che offre i servizi di scena
      * @param stato    lo stato di gioco (giocatore, flag)
@@ -50,8 +60,16 @@ final class DialoghiNpc {
         this.resolver = Objects.requireNonNull(resolver, "Il resolver non puo' essere nullo.");
     }
 
+    /**
+     * Avvia il dialogo con l'NPC: usa l'interazione su misura se l'NPC ne ha una
+     * (registro {@link #dialoghiSpeciali}), altrimenti il dialogo standard.
+     */
+    void dialoga(Npc npc) {
+        dialoghiSpeciali.getOrDefault(npc.getId(), this::conNpc).accept(npc);
+    }
+
     /** Dialogo standard: battuta dell'NPC e, se accessibile, indizio nel diario. */
-    void conNpc(Npc npc) {
+    private void conNpc(Npc npc) {
         Player player = stato.getPlayer();
         // Parlare con un NPC costa energia; se si esaurisce, scatta il game over.
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
@@ -78,7 +96,7 @@ final class DialoghiNpc {
      * (tecnico, giocatore, tecnico) e sblocca la password del PC. Sotto soglia il
      * tecnico resta sotto shock e non rivela nulla.
      */
-    void conTecnico(Npc npc) {
+    private void conTecnico(Npc npc) {
         Player player = stato.getPlayer();
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();
@@ -136,7 +154,7 @@ final class DialoghiNpc {
      * soglia il rifiuto costa {@link RegiaEsplorazione#COSTO_ENERGIA_DIALOGO} di energia.
      * Una volta aperta la porta, ulteriori interazioni si limitano a sollecitare.
      */
-    void conAddetto(Npc npc) {
+    private void conAddetto(Npc npc) {
         if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
             view.mostraDialogo(npc.getNome(), "Sbrigati, ti ho già aperto la porta laterale.");
             return;
@@ -183,7 +201,7 @@ final class DialoghiNpc {
      * sorso, restituendo l'energia appena spesa quando il giocatore passa la battuta
      * (premendo E). In ogni caso prosegue con la battuta comune a scelte.
      */
-    void conStudenteUbriaco(Npc npc) {
+    private void conStudenteUbriaco(Npc npc) {
         Player player = stato.getPlayer();
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
         view.aggiornaHud();

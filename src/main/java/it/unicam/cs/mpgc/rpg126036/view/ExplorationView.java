@@ -349,23 +349,13 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         ElementoScena e = (sprite != null)
                 ? new ElementoScena(TipoElemento.NPC, etichettaAzione, sprite)
                 : new ElementoScena(TipoElemento.NPC, npc.getNome(), etichettaAzione, Color.web("#4a90d9"));
-        // Alcuni NPC hanno un'interazione su misura: lo studente ubriaco (recupero
-        // energia col Carisma e scelte) e il tecnico (scambio a più battute); gli
-        // altri usano il dialogo standard.
-        String id = npc.getId();
-        if ("studente_ubriaco".equals(id)) {
-            e.azione = () -> dialoghi.conStudenteUbriaco(npc);
-        } else if ("tecnico_laboratorio".equals(id)) {
-            e.azione = () -> dialoghi.conTecnico(npc);
-        } else if ("addetto_pulizie".equals(id)) {
-            e.azione = () -> dialoghi.conAddetto(npc);
-        } else {
-            e.azione = () -> dialoghi.conNpc(npc);
-        }
+        // La scelta del dialogo (standard o su misura) è interna a DialoghiNpc: la
+        // schermata avvia sempre il dialogo dell'NPC senza conoscerne i casi speciali.
+        e.azione = () -> dialoghi.dialoga(npc);
         registra(e);
         // L'addetto alle pulizie del cortile (capitolo 3) ha posizione fissa accanto
         // al Polo B, fuori dalla disposizione automatica a slot.
-        if ("addetto_pulizie".equals(id)) {
+        if ("addetto_pulizie".equals(npc.getId())) {
             e.posizioneFissa = true;
             e.posiziona(POLO_B_NPC_X * MAPPA_LARGHEZZA, POLO_B_NPC_Y * MAPPA_ALTEZZA);
         }
