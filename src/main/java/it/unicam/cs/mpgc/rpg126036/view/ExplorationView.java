@@ -13,10 +13,8 @@ import it.unicam.cs.mpgc.rpg126036.interaction.ItemInteraction;
 import it.unicam.cs.mpgc.rpg126036.model.Chapter;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Npc;
-import it.unicam.cs.mpgc.rpg126036.model.PcVittimaPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
-import it.unicam.cs.mpgc.rpg126036.model.PuzzleOutcome;
 import it.unicam.cs.mpgc.rpg126036.model.Scene;
 import it.unicam.cs.mpgc.rpg126036.model.StatType;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
@@ -40,11 +38,11 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.TextAlignment;
 
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -127,6 +125,11 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     // che riprende l'aula LA1 esattamente come si era concluso il capitolo 2.
     private boolean preservaPosizione;
 
+    // Registro id-enigma -> allestitore: ogni enigma sa creare il proprio puzzle e
+    // disporsi sulla mappa. La ricostruzione della scena vi delega senza conoscere i
+    // tipi concreti, così aggiungere un enigma non tocca costruisciElementiScena.
+    private final Map<String, AllestitoreEnigma> allestitoriEnigma;
+
     // Pannelli modali in sovrimpressione (dialoghi, messaggi, enigmi, pausa, fine
     // capitolo): meccanismo isolato che tiene un solo overlay e l'eventuale dialogo.
     private final GestoreOverlay gestoreOverlay;
@@ -147,6 +150,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         this.dialoghi = new DialoghiNpc(this, stato, engine, resolver);
         this.pcVittima = new PcVittima(this, stato, engine, achievementManager, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
         this.pensieri = new Pensieri(this, stato, engine, porte);
+        // Registro degli enigmi: ogni id è associato all'allestitore che lo crea e lo
+        // dispone. Aggiungere un enigma significa aggiungere qui una voce, senza
+        // toccare la ricostruzione della scena.
+        this.allestitoriEnigma = Map.of(
+                "porta_laboratorio", porte::allestisciPortaLaboratorio,
+                "pc_vittima", pcVittima::allestisci);
         this.personaggio = new Personaggio(new CharacterSprite(stato.getPlayer().getClasse()),
                 MAPPA_LARGHEZZA, MAPPA_ALTEZZA, elementi, suggerimento,
                 this::puoMuoversi,
@@ -256,8 +265,10 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
             resolver.item(idOggetto).ifPresent(item -> aggiungiOggetto(new ItemInteraction(item)));
         }
         for (String idEnigma : contenuti.enigmi()) {
-            resolver.creaEnigma(idEnigma, stato)
-                    .ifPresent(puzzle -> aggiungiEnigma(idEnigma, puzzle));
+            AllestitoreEnigma allestitore = allestitoriEnigma.get(idEnigma);
+            if (allestitore != null) {
+                allestitore.allestisci();
+            }
         }
         // Alcune scene non rendono le uscite come elementi raggiungibili: l'aula della
         // mail (cap. 2) avanza aprendo la mail sul PC, l'Aula B al buio (cap. 3) avanza
@@ -395,27 +406,6 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         vista.setPreserveRatio(true);
         vista.setSmooth(false);
         return vista;
-    }
-
-    private void aggiungiEnigma(String idEnigma, Puzzle puzzle) {
-        // L'enigma del laboratorio (porta del Polo A) è una porta a comparsa:
-        // visibile e risolvibile solo dopo aver raccolto la chiave e ottenuto
-        // l'indizio su Alex Kaur. Lo affianca la porta — sempre bloccata — del Polo B.
-        if ("porta_laboratorio".equals(idEnigma)) {
-            porte.aggiungiPortaPoloA(puzzle);
-            porte.aggiungiPortaPoloB();
-            return;
-        }
-        // Il PC della vittima è uno dei sei computer del laboratorio: il PC giusto
-        // apre direttamente la mail, gli altri cinque sono "PC sbagliati".
-        if ("pc_vittima".equals(idEnigma)) {
-            pcVittima.aggiungi((PcVittimaPuzzle) puzzle);
-            return;
-        }
-        ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "Enigma", "Esamina l'enigma", Color.web("#9b59b6"));
-        e.puzzle = puzzle;
-        e.azione = () -> mostraEnigma(puzzle, e);
-        registra(e);
     }
 
     @Override
@@ -637,27 +627,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      * per concatenare al messaggio un dialogo successivo, come il pensiero d'indagine.
      */
     private void mostraMessaggio(String titolo, String corpo, Runnable allaChiusura) {
-        Label etichettaTitolo = new Label(titolo);
-        etichettaTitolo.getStyleClass().add("scene-title");
-        etichettaTitolo.setTextAlignment(TextAlignment.CENTER);
-        Label etichettaCorpo = new Label(corpo);
-        etichettaCorpo.getStyleClass().add("overlay-subtitle");
-        etichettaCorpo.setWrapText(true);
-        etichettaCorpo.setMaxWidth(560);
-        etichettaCorpo.setTextAlignment(TextAlignment.CENTER);
-
-        Button chiudi = new Button("Chiudi");
-        chiudi.getStyleClass().add("game-button");
-        chiudi.setOnAction(e -> allaChiusura.run());
-
-        VBox pannello = new VBox(20, etichettaTitolo, etichettaCorpo, chiudi);
-        pannello.setAlignment(Pos.CENTER);
-        // Senza fillWidth ogni scritta è larga quanto il suo testo e il VBox la centra
-        // come nodo: titolo e corpo restano centrati rispetto al centro dello schermo.
-        pannello.setFillWidth(false);
-        // Font pixel VT323, come nel resto del gioco (es. messaggio di raccolta chiave).
-        pannello.getStyleClass().add("pixel-font");
-        mostraOverlay(velo(pannello), true);
+        mostraOverlay(velo(PannelliEsplorazione.messaggio(titolo, corpo, allaChiusura)), true);
     }
 
     /**
@@ -665,22 +635,10 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      * "Continua" che conclude il capitolo (scelta del potenziamento e avanzamento).
      */
     private void mostraOverlayNarrativo(Scene scena) {
-        Label titolo = new Label(scena.getTitolo());
-        titolo.getStyleClass().add("overlay-title");
-        Label corpo = new Label(scena.getDescrizione());
-        corpo.getStyleClass().add("overlay-subtitle");
-        corpo.setWrapText(true);
-        corpo.setMaxWidth(560);
-
-        Button continua = new Button("Continua");
-        continua.getStyleClass().add("game-button");
-        continua.setOnAction(e -> {
+        VBox pannello = PannelliEsplorazione.overlayNarrativo(scena.getTitolo(), scena.getDescrizione(), () -> {
             chiudiOverlay();
             verificaCompletamentoCapitolo();
         });
-
-        VBox pannello = new VBox(24, titolo, corpo, continua);
-        pannello.setAlignment(Pos.CENTER);
         // Non chiudibile con ESC: si prosegue solo dal pulsante.
         mostraOverlay(velo(pannello), false);
     }
@@ -732,81 +690,12 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      */
     private void mostraEnigmaTastierino(Puzzle puzzle, ElementoScena elemento) {
         Player player = stato.getPlayer();
-
-        Label etichettaTitolo = new Label("Tastierino numerico");
-        etichettaTitolo.getStyleClass().add("scene-title");
-        Label etichettaTesto = new Label(puzzle.getTesto());
-        etichettaTesto.getStyleClass().add("overlay-subtitle");
-        etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(420);
-        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
-
-        Label esito = new Label();
-        esito.getStyleClass().add("overlay-subtitle");
-        esito.setWrapText(true);
-        esito.setMaxWidth(420);
-        esito.setTextAlignment(TextAlignment.CENTER);
-
-        VBox tastierino = TastierinoNumerico.crea(4, codice -> {
-            PuzzleOutcome outcome = puzzle.tenta(player, codice);
-            esito.setText(outcome.messaggio());
-            if (outcome.risolto()) {
-                enigmaRisolto(elemento);
-                return true;
-            }
-            return false;
-        });
-
-        Button forza = new Button("Forza bruta (perdi energia)");
-        forza.getStyleClass().add("game-button");
-        forza.setOnAction(e -> {
-            PuzzleOutcome outcome = puzzle.forzaBruta(player);
-            esito.setText(outcome.messaggio());
-            if (outcome.risolto()) {
-                enigmaRisolto(elemento);
-            }
-        });
-
-        VBox pannello = new VBox(16, etichettaTitolo, etichettaTesto, tastierino, forza, esito);
-        pannello.setAlignment(Pos.CENTER);
-        pannello.setMaxWidth(480);
-
-        // Pensiero del giocatore in base alla classe: appare come dialog box in basso
-        // e fornisce l'indizio (testo diverso per Investigazione, Intuizione o Carisma).
-        List<String> pensieri = puzzle.suggerimentiPer(player);
-
-        BorderPane contenuto = new BorderPane(pannello);
-        if (!pensieri.isEmpty()) {
-            Node boxPensiero = costruisciBoxPensiero(player.getNome(), String.join("\n\n", pensieri));
-            contenuto.setBottom(boxPensiero);
-            BorderPane.setMargin(boxPensiero, new Insets(0, 16, 16, 16));
-        }
-
-        StackPane velo = new StackPane(contenuto);
-        velo.getStyleClass().addAll("overlay-veil", "pixel-font");
+        StackPane velo = PannelliEsplorazione.enigmaTastierino(
+                puzzle.getTesto(), puzzle.suggerimentiPer(player), player.getNome(),
+                codice -> puzzle.tenta(player, codice),
+                () -> puzzle.forzaBruta(player),
+                () -> enigmaRisolto(elemento));
         mostraOverlay(velo, true);
-    }
-
-    /**
-     * Costruisce un dialog box statico (nome + testo) nello stile delle finestre di
-     * dialogo, usato per il pensiero del giocatore durante l'enigma.
-     */
-    private Node costruisciBoxPensiero(String nome, String testo) {
-        Label etichettaNome = new Label(nome);
-        etichettaNome.getStyleClass().add("dialog-name");
-        Label etichettaTesto = new Label(testo);
-        etichettaTesto.getStyleClass().add("dialog-text");
-        etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(Double.MAX_VALUE);
-
-        BorderPane box = new BorderPane();
-        box.getStyleClass().addAll("dialog-box", "pixel-font");
-        box.setTop(etichettaNome);
-        box.setCenter(etichettaTesto);
-        BorderPane.setAlignment(etichettaTesto, Pos.TOP_LEFT);
-        BorderPane.setMargin(etichettaTesto, new Insets(6, 0, 0, 0));
-        box.setMaxWidth(Double.MAX_VALUE);
-        return box;
     }
 
     /**
@@ -829,31 +718,11 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
 
     @Override
     public void mostraSceltaUpgrade(String titolo, String sottotitolo, Consumer<StatType> azione) {
-        Label etichettaTitolo = new Label(titolo);
-        etichettaTitolo.getStyleClass().add("scene-title");
-        Label etichettaSub = new Label(sottotitolo);
-        etichettaSub.getStyleClass().add("overlay-subtitle");
-
-        VBox opzioni = new VBox(12);
-        opzioni.setAlignment(Pos.CENTER);
-        VBox pannello = new VBox(20, etichettaTitolo, etichettaSub, opzioni);
-        pannello.setAlignment(Pos.CENTER);
-        // Font pixel VT323, come nel resto del gioco (schermata di potenziamento).
-        pannello.getStyleClass().add("pixel-font");
-
-        Player player = stato.getPlayer();
-        for (StatType tipo : StatType.values()) {
-            Button scelta = new Button(tipo.getIcona() + " " + tipo.getNomeVisualizzato()
-                    + " (attuale: " + player.getStatistica(tipo) + ")");
-            scelta.getStyleClass().add("game-button");
-            scelta.setMaxWidth(360);
-            scelta.setOnAction(e -> {
-                chiudiOverlay();
-                azione.accept(tipo);
-                aggiornaHud();
-            });
-            opzioni.getChildren().add(scelta);
-        }
+        VBox pannello = PannelliEsplorazione.sceltaUpgrade(titolo, sottotitolo, stato.getPlayer(), tipo -> {
+            chiudiOverlay();
+            azione.accept(tipo);
+            aggiornaHud();
+        });
         mostraOverlay(velo(pannello), false);
     }
 
@@ -881,40 +750,11 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     }
 
     private void mostraOverlayFinale(String titolo, String sottotitolo) {
-        Label etichettaTitolo = new Label(titolo);
-        etichettaTitolo.getStyleClass().add("overlay-title");
-        Label etichettaSub = new Label(sottotitolo);
-        etichettaSub.getStyleClass().add("overlay-subtitle");
-        etichettaSub.setWrapText(true);
-        etichettaSub.setMaxWidth(520);
-        // Testo centrato anche su più righe (altrimenti resta allineato a sinistra).
-        etichettaSub.setTextAlignment(TextAlignment.CENTER);
-
-        Button menu = new Button("Torna al menu principale");
-        menu.getStyleClass().add("game-button");
-        menu.setOnAction(e -> vaiAlMenu());
-
-        VBox pannello = new VBox(24, etichettaTitolo, etichettaSub, menu);
-        pannello.setAlignment(Pos.CENTER);
-        // Senza fillWidth ogni scritta è larga quanto il suo testo e il VBox la
-        // centra come nodo: titolo e sottotitolo restano allineati al centro.
-        pannello.setFillWidth(false);
-        // Font pixel VT323, come nel resto del gioco.
-        pannello.getStyleClass().add("pixel-font");
-        mostraOverlay(velo(pannello), false);
+        mostraOverlay(velo(PannelliEsplorazione.overlayFinale(titolo, sottotitolo, this::vaiAlMenu)), false);
     }
 
     private void mostraPausa() {
-        Label etichettaTitolo = new Label("PAUSA");
-        etichettaTitolo.getStyleClass().add("overlay-title");
-
-        Button riprendi = new Button("Riprendi");
-        riprendi.getStyleClass().add("game-button");
-        riprendi.setOnAction(e -> engine.riprendi());
-
-        VBox pannello = new VBox(24, etichettaTitolo, riprendi);
-        pannello.setAlignment(Pos.CENTER);
-        mostraOverlay(velo(pannello), false);
+        mostraOverlay(velo(PannelliEsplorazione.pausa(engine::riprendi)), false);
     }
 
     @Override

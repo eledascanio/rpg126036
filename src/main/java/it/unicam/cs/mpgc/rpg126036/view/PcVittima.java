@@ -80,16 +80,21 @@ final class PcVittima {
     }
 
     /**
-     * Dispone i sei PC del laboratorio (due per banco) come punti interattivi
-     * invisibili e indistinguibili. Solo l'ultimo a destra, verso il muro, è il PC
-     * della vittima: interagendovi la password si inserisce da sé e si apre la mail.
-     * Sui restanti cinque si ottiene "PC sbagliato" e una penalità di energia. Sono
-     * a posizione fissa, in corrispondenza dei monitor.
+     * Allestisce l'enigma del PC della vittima (capitolo 2): crea il proprio
+     * {@link PcVittimaPuzzle} — abilitando la via "password" se il giocatore ha già
+     * parlato con l'assistente — e dispone i sei PC del laboratorio (due per banco)
+     * come punti interattivi invisibili e indistinguibili. Solo l'ultimo a destra,
+     * verso il muro, è il PC della vittima: interagendovi la password si inserisce da
+     * sé e si apre la mail. Sui restanti cinque si ottiene "PC sbagliato" e una
+     * penalità di energia. Sono a posizione fissa, in corrispondenza dei monitor.
+     *
+     * <p>Concentrando qui la creazione del puzzle col suo tipo concreto, la schermata
+     * di esplorazione non deve conoscere quale enigma istanziare né convertirne il tipo.</p>
      */
-    void aggiungi(PcVittimaPuzzle puzzle) {
+    void allestisci() {
         // L'enigma del PC porta con sé le proprie regole: lo conserviamo per applicarne
         // gli effetti (energia, XP) nelle varie vie di risoluzione.
-        this.pcPuzzle = puzzle;
+        this.pcPuzzle = new PcVittimaPuzzle(stato.hasFlag(ContentResolver.FLAG_ASSISTENTE));
         // Nuova disposizione dei PC: azzera la traccia degli errori per il traguardo
         // "Cercatore d'oro" (PC giusto al primissimo click).
         pcSbagliatoToccato = false;

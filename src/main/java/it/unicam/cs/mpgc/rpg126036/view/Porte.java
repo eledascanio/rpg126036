@@ -6,6 +6,7 @@ import it.unicam.cs.mpgc.rpg126036.engine.GameState;
 import it.unicam.cs.mpgc.rpg126036.model.ClueCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.ItemCatalog;
 import it.unicam.cs.mpgc.rpg126036.model.Player;
+import it.unicam.cs.mpgc.rpg126036.model.PortaLaboratorioPuzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Puzzle;
 import it.unicam.cs.mpgc.rpg126036.model.Transition;
 import javafx.scene.paint.Color;
@@ -142,13 +143,26 @@ final class Porte {
     }
 
     /**
+     * Allestisce l'enigma della porta del laboratorio (capitolo 1): crea il proprio
+     * {@link PortaLaboratorioPuzzle} e dispone la porta del Polo A (l'enigma vero e
+     * proprio) affiancata da quella del Polo B, sempre inaccessibile. Concentrando qui
+     * la creazione del puzzle col suo tipo concreto, la schermata di esplorazione non
+     * deve conoscere quale enigma istanziare né effettuare conversioni di tipo.
+     */
+    void allestisciPortaLaboratorio() {
+        PortaLaboratorioPuzzle puzzle = new PortaLaboratorioPuzzle();
+        aggiungiPortaPoloA(puzzle);
+        aggiungiPortaPoloB();
+    }
+
+    /**
      * Crea la porta del laboratorio (Polo A) come elemento-enigma a posizione fissa.
      * Resta un enigma a tutti gli effetti — blocca la conclusione del capitolo finché
      * non risolto — e il suo nodo è sempre invisibile (la porta è sullo sfondo): a
      * cambiare è solo l'interazione. Prima dello sblocco mostra un avviso; dopo aver
      * raccolto la chiave e ottenuto l'indizio su Alex Kaur apre l'enigma.
      */
-    void aggiungiPortaPoloA(Puzzle puzzle) {
+    private void aggiungiPortaPoloA(Puzzle puzzle) {
         ElementoScena e = new ElementoScena(TipoElemento.ENIGMA, "",
                 "Esamina la porta del Polo A", Color.web("#9b59b6"));
         e.puzzle = puzzle;
@@ -170,7 +184,7 @@ final class Porte {
      * interagendovi si ottiene solo l'avviso. Non è un enigma e quindi non incide
      * sulla conclusione del capitolo.
      */
-    void aggiungiPortaPoloB() {
+    private void aggiungiPortaPoloB() {
         ElementoScena e = new ElementoScena(TipoElemento.PORTA, "",
                 "Esamina la porta del Polo B", Color.web("#9b59b6"));
         e.posizioneFissa = true;
