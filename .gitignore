@@ -39,9 +39,11 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-
 ### Appunti privati (trama, note personali) - mai pubblicare ###
 private/
 
 ### Salvataggi e progressi locali del giocatore (slot XML, achievements) - mai pubblicare ###
 saves/
+
+### Bozze delle pagine della Wiki (da pubblicare sul repo .wiki.git, non nel repo del codice) ###
+wiki/
