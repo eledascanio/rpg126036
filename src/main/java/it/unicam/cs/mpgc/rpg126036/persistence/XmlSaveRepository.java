@@ -155,51 +155,51 @@ public class XmlSaveRepository implements SaveRepository {
         root.appendChild(player);
 
         Element flag = doc.createElement("flag");
-        for (String f : stato.getFlag()) {
-            Element el = doc.createElement("f");
-            el.setTextContent(f);
-            flag.appendChild(el);
+        for (String nomeFlag : stato.getFlag()) {
+            Element elementoFlag = doc.createElement("f");
+            elementoFlag.setTextContent(nomeFlag);
+            flag.appendChild(elementoFlag);
         }
         root.appendChild(flag);
 
-        stato.getCapitoloCorrente().ifPresent(cap -> root.appendChild(serializzaCapitolo(doc, cap)));
+        stato.getCapitoloCorrente().ifPresent(capitolo -> root.appendChild(serializzaCapitolo(doc, capitolo)));
         return root;
     }
 
-    private Element serializzaCapitolo(Document doc, Chapter cap) {
-        Element capitolo = doc.createElement("capitolo");
-        capitolo.setAttribute("id", cap.getId());
-        capitolo.setAttribute("titolo", cap.getTitolo());
-        capitolo.setAttribute("scenaCorrente", cap.getScenaCorrente().getId());
-        for (Scene scena : cap.getScene()) {
-            Element el = doc.createElement("scena");
-            el.setAttribute("id", scena.getId());
-            el.setAttribute("titolo", scena.getTitolo());
-            el.setAttribute("descrizione", scena.getDescrizione());
-            el.setAttribute("completata", Boolean.toString(scena.isCompletata()));
-            for (Transition t : scena.getTransizioni()) {
-                Element tr = doc.createElement("transizione");
-                tr.setAttribute("etichetta", t.etichetta());
-                tr.setAttribute("destinazione", t.idDestinazione());
-                el.appendChild(tr);
+    private Element serializzaCapitolo(Document doc, Chapter capitolo) {
+        Element elementoCapitolo = doc.createElement("capitolo");
+        elementoCapitolo.setAttribute("id", capitolo.getId());
+        elementoCapitolo.setAttribute("titolo", capitolo.getTitolo());
+        elementoCapitolo.setAttribute("scenaCorrente", capitolo.getScenaCorrente().getId());
+        for (Scene scena : capitolo.getScene()) {
+            Element elementoScena = doc.createElement("scena");
+            elementoScena.setAttribute("id", scena.getId());
+            elementoScena.setAttribute("titolo", scena.getTitolo());
+            elementoScena.setAttribute("descrizione", scena.getDescrizione());
+            elementoScena.setAttribute("completata", Boolean.toString(scena.isCompletata()));
+            for (Transition transizione : scena.getTransizioni()) {
+                Element elementoTransizione = doc.createElement("transizione");
+                elementoTransizione.setAttribute("etichetta", transizione.etichetta());
+                elementoTransizione.setAttribute("destinazione", transizione.idDestinazione());
+                elementoScena.appendChild(elementoTransizione);
             }
-            capitolo.appendChild(el);
+            elementoCapitolo.appendChild(elementoScena);
         }
-        return capitolo;
+        return elementoCapitolo;
     }
 
     /**
      * Serializza l'inventario del giocatore in un elemento {@code <inventario>}
      * con un {@code <item>} (id, nome, descrizione) per ogni oggetto.
      */
-    private Element serializzaInventario(Document doc, Player p) {
+    private Element serializzaInventario(Document doc, Player giocatore) {
         Element inventario = doc.createElement("inventario");
-        for (Item item : p.getInventario().getOggetti()) {
-            Element el = doc.createElement("item");
-            el.setAttribute("id", item.id());
-            el.setAttribute("nome", item.nome());
-            el.setAttribute("descrizione", item.descrizione());
-            inventario.appendChild(el);
+        for (Item item : giocatore.getInventario().getOggetti()) {
+            Element elementoItem = doc.createElement("item");
+            elementoItem.setAttribute("id", item.id());
+            elementoItem.setAttribute("nome", item.nome());
+            elementoItem.setAttribute("descrizione", item.descrizione());
+            inventario.appendChild(elementoItem);
         }
         return inventario;
     }
@@ -208,14 +208,14 @@ public class XmlSaveRepository implements SaveRepository {
      * Serializza il diario degli indizi in un elemento {@code <diario>} con un
      * {@code <indizio>} (id, titolo, testo) per ogni indizio scoperto.
      */
-    private Element serializzaDiario(Document doc, Player p) {
+    private Element serializzaDiario(Document doc, Player giocatore) {
         Element diario = doc.createElement("diario");
-        for (Clue indizio : p.getDiario().getIndizi()) {
-            Element el = doc.createElement("indizio");
-            el.setAttribute("id", indizio.id());
-            el.setAttribute("titolo", indizio.titolo());
-            el.setAttribute("testo", indizio.testo());
-            diario.appendChild(el);
+        for (Clue indizio : giocatore.getDiario().getIndizi()) {
+            Element elementoIndizio = doc.createElement("indizio");
+            elementoIndizio.setAttribute("id", indizio.id());
+            elementoIndizio.setAttribute("titolo", indizio.titolo());
+            elementoIndizio.setAttribute("testo", indizio.testo());
+            diario.appendChild(elementoIndizio);
         }
         return diario;
     }
@@ -225,73 +225,73 @@ public class XmlSaveRepository implements SaveRepository {
     // ----------------------------------------------------------------------
 
     private GameState deserializzaGameState(Element root) {
-        Element playerEl = primoElemento(root, "player");
-        Player player = deserializzaPlayer(playerEl);
+        Element elementoPlayer = primoElemento(root, "player");
+        Player giocatore = deserializzaPlayer(elementoPlayer);
 
         GameState stato;
-        Element capitoloEl = primoElemento(root, "capitolo");
-        if (capitoloEl != null) {
-            stato = new GameState(player, deserializzaCapitolo(capitoloEl));
+        Element elementoCapitolo = primoElemento(root, "capitolo");
+        if (elementoCapitolo != null) {
+            stato = new GameState(giocatore, deserializzaCapitolo(elementoCapitolo));
         } else {
-            stato = new GameState(player);
+            stato = new GameState(giocatore);
         }
 
-        Element flagEl = primoElemento(root, "flag");
-        if (flagEl != null) {
-            NodeList flags = flagEl.getElementsByTagName("f");
-            for (int i = 0; i < flags.getLength(); i++) {
-                stato.setFlag(flags.item(i).getTextContent());
+        Element elementoFlag = primoElemento(root, "flag");
+        if (elementoFlag != null) {
+            NodeList flagSalvati = elementoFlag.getElementsByTagName("f");
+            for (int i = 0; i < flagSalvati.getLength(); i++) {
+                stato.setFlag(flagSalvati.item(i).getTextContent());
             }
         }
         return stato;
     }
 
-    private Player deserializzaPlayer(Element playerEl) {
-        String nome = playerEl.getAttribute("nome");
-        CharacterClass classe = CharacterClass.valueOf(playerEl.getAttribute("classe"));
-        Player player = new Player(nome, classe);
+    private Player deserializzaPlayer(Element elementoPlayer) {
+        String nome = elementoPlayer.getAttribute("nome");
+        CharacterClass classe = CharacterClass.valueOf(elementoPlayer.getAttribute("classe"));
+        Player giocatore = new Player(nome, classe);
 
         // Energia: il Player parte al massimo, si riduce al valore salvato.
-        int energia = Integer.parseInt(playerEl.getAttribute("energia"));
+        int energia = Integer.parseInt(elementoPlayer.getAttribute("energia"));
         int delta = Player.ENERGIA_MASSIMA - energia;
         if (delta > 0) {
-            player.riduciEnergia(delta);
+            giocatore.riduciEnergia(delta);
         }
         // XP: si parte da zero e si accumula il valore salvato.
-        player.aggiungiXp(Integer.parseInt(playerEl.getAttribute("xp")));
+        giocatore.aggiungiXp(Integer.parseInt(elementoPlayer.getAttribute("xp")));
         // Statistiche: si parte dai valori iniziali della classe e si aggiunge la differenza.
-        Element statistiche = primoElemento(playerEl, "statistiche");
+        Element statistiche = primoElemento(elementoPlayer, "statistiche");
         if (statistiche != null) {
-            NodeList stats = statistiche.getElementsByTagName("stat");
-            for (int i = 0; i < stats.getLength(); i++) {
-                Element stat = (Element) stats.item(i);
-                StatType tipo = StatType.valueOf(stat.getAttribute("tipo"));
-                int valore = Integer.parseInt(stat.getAttribute("valore"));
-                int diff = valore - classe.statisticaIniziale(tipo);
-                if (diff > 0) {
-                    player.aumentaStatistica(tipo, diff);
+            NodeList statSalvate = statistiche.getElementsByTagName("stat");
+            for (int i = 0; i < statSalvate.getLength(); i++) {
+                Element elementoStat = (Element) statSalvate.item(i);
+                StatType tipo = StatType.valueOf(elementoStat.getAttribute("tipo"));
+                int valore = Integer.parseInt(elementoStat.getAttribute("valore"));
+                int differenza = valore - classe.statisticaIniziale(tipo);
+                if (differenza > 0) {
+                    giocatore.aumentaStatistica(tipo, differenza);
                 }
             }
         }
-        deserializzaInventario(playerEl, player);
-        deserializzaDiario(playerEl, player);
-        return player;
+        deserializzaInventario(elementoPlayer, giocatore);
+        deserializzaDiario(elementoPlayer, giocatore);
+        return giocatore;
     }
 
     /**
      * Ripopola l'inventario del giocatore dagli elementi {@code <item>} contenuti
      * nel {@code <inventario>}, se presente.
      */
-    private void deserializzaInventario(Element playerEl, Player player) {
-        Element inventario = primoElemento(playerEl, "inventario");
+    private void deserializzaInventario(Element elementoPlayer, Player giocatore) {
+        Element inventario = primoElemento(elementoPlayer, "inventario");
         if (inventario == null) {
             return;
         }
-        NodeList items = inventario.getElementsByTagName("item");
-        for (int i = 0; i < items.getLength(); i++) {
-            Element it = (Element) items.item(i);
-            player.raccogli(new Item(it.getAttribute("id"), it.getAttribute("nome"),
-                    it.getAttribute("descrizione")));
+        NodeList itemSalvati = inventario.getElementsByTagName("item");
+        for (int i = 0; i < itemSalvati.getLength(); i++) {
+            Element elementoItem = (Element) itemSalvati.item(i);
+            giocatore.raccogli(new Item(elementoItem.getAttribute("id"), elementoItem.getAttribute("nome"),
+                    elementoItem.getAttribute("descrizione")));
         }
     }
 
@@ -299,42 +299,44 @@ public class XmlSaveRepository implements SaveRepository {
      * Ripopola il diario del giocatore dagli elementi {@code <indizio>} contenuti
      * nel {@code <diario>}, se presente.
      */
-    private void deserializzaDiario(Element playerEl, Player player) {
-        Element diario = primoElemento(playerEl, "diario");
+    private void deserializzaDiario(Element elementoPlayer, Player giocatore) {
+        Element diario = primoElemento(elementoPlayer, "diario");
         if (diario == null) {
             return;
         }
-        NodeList indizi = diario.getElementsByTagName("indizio");
-        for (int i = 0; i < indizi.getLength(); i++) {
-            Element ind = (Element) indizi.item(i);
-            player.scopriIndizio(new Clue(ind.getAttribute("id"), ind.getAttribute("titolo"),
-                    ind.getAttribute("testo")));
+        NodeList indiziSalvati = diario.getElementsByTagName("indizio");
+        for (int i = 0; i < indiziSalvati.getLength(); i++) {
+            Element elementoIndizio = (Element) indiziSalvati.item(i);
+            giocatore.scopriIndizio(new Clue(elementoIndizio.getAttribute("id"),
+                    elementoIndizio.getAttribute("titolo"), elementoIndizio.getAttribute("testo")));
         }
     }
 
-    private Chapter deserializzaCapitolo(Element capitoloEl) {
-        Chapter capitolo = new Chapter(capitoloEl.getAttribute("id"), capitoloEl.getAttribute("titolo"));
-        NodeList scene = capitoloEl.getElementsByTagName("scena");
-        List<Element> completate = new ArrayList<>();
+    private Chapter deserializzaCapitolo(Element elementoCapitolo) {
+        Chapter capitolo = new Chapter(elementoCapitolo.getAttribute("id"),
+                elementoCapitolo.getAttribute("titolo"));
+        NodeList scene = elementoCapitolo.getElementsByTagName("scena");
+        List<Element> sceneCompletate = new ArrayList<>();
         for (int i = 0; i < scene.getLength(); i++) {
-            Element scenaEl = (Element) scene.item(i);
-            Scene scena = new Scene(scenaEl.getAttribute("id"), scenaEl.getAttribute("titolo"),
-                    scenaEl.getAttribute("descrizione"));
-            NodeList transizioni = scenaEl.getElementsByTagName("transizione");
+            Element elementoScena = (Element) scene.item(i);
+            Scene scena = new Scene(elementoScena.getAttribute("id"), elementoScena.getAttribute("titolo"),
+                    elementoScena.getAttribute("descrizione"));
+            NodeList transizioni = elementoScena.getElementsByTagName("transizione");
             for (int j = 0; j < transizioni.getLength(); j++) {
-                Element tr = (Element) transizioni.item(j);
-                scena.aggiungiTransizione(tr.getAttribute("etichetta"), tr.getAttribute("destinazione"));
+                Element elementoTransizione = (Element) transizioni.item(j);
+                scena.aggiungiTransizione(elementoTransizione.getAttribute("etichetta"),
+                        elementoTransizione.getAttribute("destinazione"));
             }
             capitolo.aggiungiScena(scena);
-            if (Boolean.parseBoolean(scenaEl.getAttribute("completata"))) {
-                completate.add(scenaEl);
+            if (Boolean.parseBoolean(elementoScena.getAttribute("completata"))) {
+                sceneCompletate.add(elementoScena);
             }
         }
         // Ripristino dei flag di completamento e della scena corrente.
-        for (Element scenaEl : completate) {
-            capitolo.getScena(scenaEl.getAttribute("id")).ifPresent(Scene::segnaCompletata);
+        for (Element elementoScena : sceneCompletate) {
+            capitolo.getScena(elementoScena.getAttribute("id")).ifPresent(Scene::segnaCompletata);
         }
-        capitolo.setScenaIniziale(capitoloEl.getAttribute("scenaCorrente"));
+        capitolo.setScenaIniziale(elementoCapitolo.getAttribute("scenaCorrente"));
         return capitolo;
     }
 

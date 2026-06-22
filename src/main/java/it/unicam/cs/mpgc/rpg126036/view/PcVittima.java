@@ -199,11 +199,7 @@ final class PcVittima {
         Player player = stato.getPlayer();
         VBox pannello = pannello(pcPuzzle.testoEnigmaBinario());
 
-        Label esito = new Label();
-        esito.getStyleClass().add("overlay-subtitle");
-        esito.setWrapText(true);
-        esito.setMaxWidth(460);
-        esito.setTextAlignment(TextAlignment.CENTER);
+        Label esito = PannelliEsplorazione.etichettaSottotitolo("", 460);
 
         VBox tastierino = TastierinoNumerico.crea(2, codice -> {
             PuzzleOutcome risultato = pcPuzzle.tenta(player, codice);

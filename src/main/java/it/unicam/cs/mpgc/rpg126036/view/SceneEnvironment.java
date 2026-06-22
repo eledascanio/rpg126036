@@ -3,6 +3,7 @@ package it.unicam.cs.mpgc.rpg126036.view;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -49,12 +50,12 @@ public final class SceneEnvironment {
      * @param sfondo path classpath dell'immagine di sfondo, o {@code null}
      * @param muri   le zone non calpestabili
      * @param slot   le posizioni degli elementi, in ordine di dichiarazione
-     * @param spawnX ascissa del punto di comparsa (0..1)
-     * @param spawnY ordinata del punto di comparsa (0..1)
+     * @param spawn  il punto di comparsa del personaggio (0..1)
      */
-    public record Ambiente(String sfondo, List<Muro> muri, List<Punto> slot, double spawnX, double spawnY) {
+    public record Ambiente(String sfondo, List<Muro> muri, List<Punto> slot, Punto spawn) {
 
         public Ambiente {
+            Objects.requireNonNull(spawn, "Il punto di comparsa non puo' essere nullo.");
             muri = List.copyOf(muri);
             slot = List.copyOf(slot);
         }
@@ -86,7 +87,7 @@ public final class SceneEnvironment {
                 new Punto(0.45, 0.76),
                 new Punto(0.55, 0.76),
                 new Punto(0.85, 0.68)   // chiave: angolo in basso a destra, sul pavimento
-        ), 0.50, 0.55));
+        ), new Punto(0.50, 0.55)));
 
         // Aula LA1 (capitolo 2): laboratorio informatico. Parete superiore con
         // scaffali, server e bancone; tre banchi di PC; porta in basso a destra.
@@ -99,7 +100,7 @@ public final class SceneEnvironment {
                 // Solo il tecnico usa uno slot: i sei PC hanno posizione fissa sui banchi
                 // e l'uscita (l'email) si apre da sé sbloccando il PC della vittima.
                 new Punto(0.13, 0.70)   // tecnico di laboratorio, spalle alla parete di sinistra
-        ), 0.50, 0.88));
+        ), new Punto(0.50, 0.88)));
 
         // Aula B (capitolo 3): l'aula al buio. La vista vi sovrappone l'effetto
         // torcia; gli indizi (luccichii) hanno posizione fissa gestita dalla vista.
@@ -110,7 +111,7 @@ public final class SceneEnvironment {
                 new Muro(0.41, 0.20, 0.18, 0.17),   // cattedra (tavolo) in fondo al centro
                 new Muro(0.08, 0.21, 0.24, 0.47),   // banchi laterali a sinistra
                 new Muro(0.67, 0.21, 0.26, 0.47)    // banchi laterali a destra
-        ), List.of(), 0.50, 0.82));
+        ), List.of(), new Punto(0.50, 0.82)));
     }
 
     /**

@@ -36,6 +36,24 @@ final class PannelliEsplorazione {
     }
 
     /**
+     * Crea l'etichetta di sottotitolo standard degli overlay: stile
+     * {@code overlay-subtitle}, testo a capo e centrato entro la larghezza massima
+     * indicata. Centralizza il pattern ripetuto nei vari pannelli a sovrimpressione.
+     *
+     * @param testo            il testo dell'etichetta (eventualmente vuoto)
+     * @param larghezzaMassima larghezza massima in pixel oltre cui il testo va a capo
+     * @return l'etichetta configurata
+     */
+    static Label etichettaSottotitolo(String testo, double larghezzaMassima) {
+        Label etichetta = new Label(testo);
+        etichetta.getStyleClass().add("overlay-subtitle");
+        etichetta.setWrapText(true);
+        etichetta.setMaxWidth(larghezzaMassima);
+        etichetta.setTextAlignment(TextAlignment.CENTER);
+        return etichetta;
+    }
+
+    /**
      * Pannello a messaggio: titolo, corpo e un pulsante "Chiudi" che esegue
      * {@code allaChiusura} (utile per concatenare un dialogo successivo).
      */
@@ -43,11 +61,7 @@ final class PannelliEsplorazione {
         Label etichettaTitolo = new Label(titolo);
         etichettaTitolo.getStyleClass().add("scene-title");
         etichettaTitolo.setTextAlignment(TextAlignment.CENTER);
-        Label etichettaCorpo = new Label(corpo);
-        etichettaCorpo.getStyleClass().add("overlay-subtitle");
-        etichettaCorpo.setWrapText(true);
-        etichettaCorpo.setMaxWidth(560);
-        etichettaCorpo.setTextAlignment(TextAlignment.CENTER);
+        Label etichettaCorpo = etichettaSottotitolo(corpo, 560);
 
         Button chiudi = new Button("Chiudi");
         chiudi.getStyleClass().add("game-button");
@@ -132,17 +146,9 @@ final class PannelliEsplorazione {
                                       Runnable onRisolto) {
         Label etichettaTitolo = new Label("Tastierino numerico");
         etichettaTitolo.getStyleClass().add("scene-title");
-        Label etichettaTesto = new Label(testoEnigma);
-        etichettaTesto.getStyleClass().add("overlay-subtitle");
-        etichettaTesto.setWrapText(true);
-        etichettaTesto.setMaxWidth(420);
-        etichettaTesto.setTextAlignment(TextAlignment.CENTER);
+        Label etichettaTesto = etichettaSottotitolo(testoEnigma, 420);
 
-        Label esito = new Label();
-        esito.getStyleClass().add("overlay-subtitle");
-        esito.setWrapText(true);
-        esito.setMaxWidth(420);
-        esito.setTextAlignment(TextAlignment.CENTER);
+        Label esito = etichettaSottotitolo("", 420);
 
         VBox tastierino = TastierinoNumerico.crea(4, codice -> {
             PuzzleOutcome outcome = tenta.apply(codice);
@@ -209,12 +215,7 @@ final class PannelliEsplorazione {
     static VBox overlayFinale(String titolo, String sottotitolo, Runnable alMenu) {
         Label etichettaTitolo = new Label(titolo);
         etichettaTitolo.getStyleClass().add("overlay-title");
-        Label etichettaSub = new Label(sottotitolo);
-        etichettaSub.getStyleClass().add("overlay-subtitle");
-        etichettaSub.setWrapText(true);
-        etichettaSub.setMaxWidth(520);
-        // Testo centrato anche su più righe (altrimenti resta allineato a sinistra).
-        etichettaSub.setTextAlignment(TextAlignment.CENTER);
+        Label etichettaSub = etichettaSottotitolo(sottotitolo, 520);
 
         Button menu = new Button("Torna al menu principale");
         menu.getStyleClass().add("game-button");

@@ -38,9 +38,9 @@ final class DisposizioneScena {
      */
     void disponi(List<ElementoScena> elementi, SceneEnvironment.Ambiente ambiente) {
         List<ElementoScena> daDisporre = new ArrayList<>();
-        for (ElementoScena e : elementi) {
-            if (!e.posizioneFissa) {
-                daDisporre.add(e);
+        for (ElementoScena elemento : elementi) {
+            if (!elemento.posizioneFissa) {
+                daDisporre.add(elemento);
             }
         }
         if (ambiente != null && !ambiente.slot().isEmpty()) {
@@ -71,11 +71,11 @@ final class DisposizioneScena {
         List<ElementoScena> npc = new ArrayList<>();
         List<ElementoScena> centro = new ArrayList<>();
         List<ElementoScena> uscite = new ArrayList<>();
-        for (ElementoScena e : daDisporre) {
-            switch (e.tipo) {
-                case NPC -> npc.add(e);
-                case OGGETTO, ENIGMA -> centro.add(e);
-                case USCITA -> uscite.add(e);
+        for (ElementoScena elemento : daDisporre) {
+            switch (elemento.tipo) {
+                case NPC -> npc.add(elemento);
+                case OGGETTO, ENIGMA -> centro.add(elemento);
+                case USCITA -> uscite.add(elemento);
                 case PORTA -> { /* le porte hanno posizione fissa, non a fasce */ }
             }
         }

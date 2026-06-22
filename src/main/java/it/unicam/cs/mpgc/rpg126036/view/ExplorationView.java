@@ -333,8 +333,8 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
             x = davantiAPorta.get().x() * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
             y = davantiAPorta.get().y() * MAPPA_ALTEZZA - Personaggio.LATO / 2;
         } else if (ambiente != null) {
-            x = ambiente.spawnX() * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
-            y = ambiente.spawnY() * MAPPA_ALTEZZA - Personaggio.LATO / 2;
+            x = ambiente.spawn().x() * MAPPA_LARGHEZZA - Personaggio.LATO / 2;
+            y = ambiente.spawn().y() * MAPPA_ALTEZZA - Personaggio.LATO / 2;
         } else {
             x = (MAPPA_LARGHEZZA - Personaggio.LATO) / 2;
             y = MAPPA_ALTEZZA - Personaggio.LATO - 8;
