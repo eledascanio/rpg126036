@@ -66,8 +66,7 @@ final class Personaggio {
 
     /**
      * @param sprite         lo sprite della classe scelta dal giocatore
-     * @param larghezzaMappa larghezza della mappa, per il limite di movimento
-     * @param altezzaMappa   altezza della mappa, per il limite di movimento
+     * @param dimensione     le dimensioni della mappa, per il limite di movimento (non nulle)
      * @param elementi       gli elementi della scena (riferimento condiviso) su cui
      *                       calcolare la prossimita'
      * @param suggerimento   l'etichetta del suggerimento "Premi E" da aggiornare
@@ -76,12 +75,13 @@ final class Personaggio {
      * @param interagisci    reazione al tasto E (interazione con l'elemento vicino)
      * @param gestisciEscape reazione al tasto ESC (pausa, chiusura overlay)
      */
-    Personaggio(CharacterSprite sprite, double larghezzaMappa, double altezzaMappa,
+    Personaggio(CharacterSprite sprite, DimensioneMappa dimensione,
                 List<ElementoScena> elementi, Label suggerimento, BooleanSupplier puoMuoversi,
                 Runnable alMovimento, Runnable interagisci, Runnable gestisciEscape) {
         this.sprite = Objects.requireNonNull(sprite, "Lo sprite non puo' essere nullo.");
-        this.larghezzaMappa = larghezzaMappa;
-        this.altezzaMappa = altezzaMappa;
+        Objects.requireNonNull(dimensione, "Le dimensioni della mappa non possono essere nulle.");
+        this.larghezzaMappa = dimensione.larghezza();
+        this.altezzaMappa = dimensione.altezza();
         this.elementi = Objects.requireNonNull(elementi, "La lista degli elementi non puo' essere nulla.");
         this.suggerimento = Objects.requireNonNull(suggerimento, "Il suggerimento non puo' essere nullo.");
         this.puoMuoversi = Objects.requireNonNull(puoMuoversi, "Il predicato di movimento non puo' essere nullo.");

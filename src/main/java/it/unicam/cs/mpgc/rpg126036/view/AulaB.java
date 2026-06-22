@@ -76,23 +76,22 @@ final class AulaB {
     private final List<ElementoScena> luccichii = new ArrayList<>();
 
     /**
-     * @param regia          la regia della scena, da cui si attingono i ruoli usati
-     * @param stato          lo stato di gioco (giocatore, flag)
-     * @param engine         il motore di gioco (indizi, game over, avanzamento)
-     * @param larghezzaMappa larghezza della mappa, per posizionare gli elementi
-     * @param altezzaMappa   altezza della mappa, per posizionare gli elementi
+     * @param regia      la regia della scena, da cui si attingono i ruoli usati
+     * @param stato      lo stato di gioco (giocatore, flag)
+     * @param engine     il motore di gioco (indizi, game over, avanzamento)
+     * @param dimensione le dimensioni della mappa, per posizionare gli elementi (non nulle)
      */
-    AulaB(RegiaEsplorazione regia, GameState stato, GameEngine engine,
-          double larghezzaMappa, double altezzaMappa) {
+    AulaB(RegiaEsplorazione regia, GameState stato, GameEngine engine, DimensioneMappa dimensione) {
         Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        Objects.requireNonNull(dimensione, "Le dimensioni della mappa non possono essere nulle.");
         this.mappa = regia;
         this.torcia = regia;
         this.dialoghi = regia;
         this.progressione = regia;
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
-        this.larghezzaMappa = larghezzaMappa;
-        this.altezzaMappa = altezzaMappa;
+        this.larghezzaMappa = dimensione.larghezza();
+        this.altezzaMappa = dimensione.altezza();
     }
 
     /**

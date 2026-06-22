@@ -60,12 +60,12 @@ final class PcVittima {
      * @param stato              lo stato di gioco (giocatore, flag)
      * @param engine             il motore di gioco (indizi, game over, avanzamento)
      * @param achievementManager il gestore dei traguardi ("Cercatore d'oro")
-     * @param larghezzaMappa     larghezza della mappa, per posizionare i PC
-     * @param altezzaMappa       altezza della mappa, per posizionare i PC
+     * @param dimensione         le dimensioni della mappa, per posizionare i PC (non nulle)
      */
     PcVittima(RegiaEsplorazione regia, GameState stato, GameEngine engine,
-              AchievementManager achievementManager, double larghezzaMappa, double altezzaMappa) {
+              AchievementManager achievementManager, DimensioneMappa dimensione) {
         Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        Objects.requireNonNull(dimensione, "Le dimensioni della mappa non possono essere nulle.");
         this.mappa = regia;
         this.dialoghi = regia;
         this.overlay = regia;
@@ -74,8 +74,8 @@ final class PcVittima {
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
         this.achievementManager =
                 Objects.requireNonNull(achievementManager, "Il gestore dei traguardi non puo' essere nullo.");
-        this.larghezzaMappa = larghezzaMappa;
-        this.altezzaMappa = altezzaMappa;
+        this.larghezzaMappa = dimensione.larghezza();
+        this.altezzaMappa = dimensione.altezza();
     }
 
     /**

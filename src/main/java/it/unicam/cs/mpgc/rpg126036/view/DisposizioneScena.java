@@ -2,6 +2,7 @@ package it.unicam.cs.mpgc.rpg126036.view;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Colloca gli elementi interattivi di una scena sulla mappa. Gli elementi a
@@ -20,12 +21,12 @@ final class DisposizioneScena {
     private final double altezzaMappa;
 
     /**
-     * @param larghezzaMappa larghezza della mappa in pixel
-     * @param altezzaMappa   altezza della mappa in pixel
+     * @param dimensione le dimensioni della mappa in pixel (non nulle)
      */
-    DisposizioneScena(double larghezzaMappa, double altezzaMappa) {
-        this.larghezzaMappa = larghezzaMappa;
-        this.altezzaMappa = altezzaMappa;
+    DisposizioneScena(DimensioneMappa dimensione) {
+        Objects.requireNonNull(dimensione, "Le dimensioni della mappa non possono essere nulle.");
+        this.larghezzaMappa = dimensione.larghezza();
+        this.altezzaMappa = dimensione.altezza();
     }
 
     /**

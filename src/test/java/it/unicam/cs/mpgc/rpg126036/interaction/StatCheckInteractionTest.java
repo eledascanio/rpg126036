@@ -24,8 +24,8 @@ class StatCheckInteractionTest {
     private StatCheckInteraction check() {
         return new StatCheckInteraction("check", "Convinci l'NPC",
                 new StatRequirement(StatType.CARISMA, 2),
-                "Riuscito", 0, 30,
-                "Fallito", 10, 5);
+                new EsitoCheck("Riuscito", 0, 30),
+                new EsitoCheck("Fallito", 10, 5));
     }
 
     @Test

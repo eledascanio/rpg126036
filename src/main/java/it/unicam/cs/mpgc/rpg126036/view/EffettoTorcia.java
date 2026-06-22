@@ -20,11 +20,10 @@ final class EffettoTorcia {
     private final Rectangle velo;
 
     /**
-     * @param larghezza larghezza della mappa coperta dal velo
-     * @param altezza   altezza della mappa coperta dal velo
+     * @param dimensione le dimensioni della mappa coperta dal velo (non nulle)
      */
-    EffettoTorcia(double larghezza, double altezza) {
-        velo = new Rectangle(larghezza, altezza);
+    EffettoTorcia(DimensioneMappa dimensione) {
+        velo = new Rectangle(dimensione.larghezza(), dimensione.altezza());
         // Il velo non deve intercettare i clic sugli elementi sottostanti.
         velo.setMouseTransparent(true);
     }

@@ -64,23 +64,22 @@ final class Porte {
     private ElementoScena portaPoloB;
 
     /**
-     * @param regia          la regia della scena, da cui si attingono i ruoli usati
-     * @param stato          lo stato di gioco (giocatore, inventario, diario, flag)
-     * @param engine         il motore di gioco (game over, avanzamento)
-     * @param larghezzaMappa larghezza della mappa, per posizionare le porte
-     * @param altezzaMappa   altezza della mappa, per posizionare le porte
+     * @param regia      la regia della scena, da cui si attingono i ruoli usati
+     * @param stato      lo stato di gioco (giocatore, inventario, diario, flag)
+     * @param engine     il motore di gioco (game over, avanzamento)
+     * @param dimensione le dimensioni della mappa, per posizionare le porte (non nulle)
      */
-    Porte(RegiaEsplorazione regia, GameState stato, GameEngine engine,
-          double larghezzaMappa, double altezzaMappa) {
+    Porte(RegiaEsplorazione regia, GameState stato, GameEngine engine, DimensioneMappa dimensione) {
         Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        Objects.requireNonNull(dimensione, "Le dimensioni della mappa non possono essere nulle.");
         this.mappa = regia;
         this.dialoghi = regia;
         this.overlay = regia;
         this.progressione = regia;
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
-        this.larghezzaMappa = larghezzaMappa;
-        this.altezzaMappa = altezzaMappa;
+        this.larghezzaMappa = dimensione.larghezza();
+        this.altezzaMappa = dimensione.altezza();
     }
 
     /** Azzera i riferimenti alle porte del cortile alla ricostruzione della scena. */

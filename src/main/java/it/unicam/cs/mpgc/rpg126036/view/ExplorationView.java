@@ -61,8 +61,9 @@ import java.util.function.Consumer;
  */
 public class ExplorationView implements GameListener, RegiaEsplorazione {
 
-    private static final double MAPPA_LARGHEZZA = 860;
-    private static final double MAPPA_ALTEZZA = 440;
+    private static final DimensioneMappa DIMENSIONE_MAPPA = new DimensioneMappa(860, 440);
+    private static final double MAPPA_LARGHEZZA = DIMENSIONE_MAPPA.larghezza();
+    private static final double MAPPA_ALTEZZA = DIMENSIONE_MAPPA.altezza();
     // Altezza degli oggetti raccoglibili che hanno uno sprite dedicato.
     private static final double ALTEZZA_OGGETTO = 32;
     // Altezza degli NPC con sprite dedicato (poco meno del personaggio giocante).
@@ -98,7 +99,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
     private final List<ElementoScena> elementi = new ArrayList<>();
     private final SceneEnvironment ambienti = new SceneEnvironment();
     // Geometria del layout: colloca gli elementi della scena su slot o a fasce.
-    private final DisposizioneScena disposizione = new DisposizioneScena(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+    private final DisposizioneScena disposizione = new DisposizioneScena(DIMENSIONE_MAPPA);
     // Porte degli edifici (Polo A/B del cortile e uscite a porta invisibili): la
     // trama delle porte vive qui, pilotata dalla scena che le offre i servizi.
     private final Porte porte;
@@ -145,10 +146,10 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
         this.campaign = session.getCampaign();
         this.achievementManager = session.getAchievementManager();
         this.resolver = context.contentResolver();
-        this.aulaB = new AulaB(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
-        this.porte = new Porte(this, stato, engine, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        this.aulaB = new AulaB(this, stato, engine, DIMENSIONE_MAPPA);
+        this.porte = new Porte(this, stato, engine, DIMENSIONE_MAPPA);
         this.dialoghi = new DialoghiNpc(this, stato, engine, resolver);
-        this.pcVittima = new PcVittima(this, stato, engine, achievementManager, MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        this.pcVittima = new PcVittima(this, stato, engine, achievementManager, DIMENSIONE_MAPPA);
         this.pensieri = new Pensieri(this, stato, engine, porte);
         // Registro degli enigmi: ogni id è associato all'allestitore che lo crea e lo
         // dispone. Aggiungere un enigma significa aggiungere qui una voce, senza
@@ -157,7 +158,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
                 "porta_laboratorio", porte::allestisciPortaLaboratorio,
                 "pc_vittima", pcVittima::allestisci);
         this.personaggio = new Personaggio(new CharacterSprite(stato.getPlayer().getClasse()),
-                MAPPA_LARGHEZZA, MAPPA_ALTEZZA, elementi, suggerimento,
+                DIMENSIONE_MAPPA, elementi, suggerimento,
                 this::puoMuoversi,
                 this::aggiornaTorcia, this::interagisci, this::gestisciEscape);
 
@@ -447,7 +448,7 @@ public class ExplorationView implements GameListener, RegiaEsplorazione {
      */
     @Override
     public void aggiungiTorcia() {
-        torcia = new EffettoTorcia(MAPPA_LARGHEZZA, MAPPA_ALTEZZA);
+        torcia = new EffettoTorcia(DIMENSIONE_MAPPA);
         mappa.getChildren().add(torcia.nodo());
     }
 
