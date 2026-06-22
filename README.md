@@ -48,9 +48,11 @@ attività puntuali, sempre seguite da revisione e test manuali.
   * la generazione degli **sfondi delle stanze/ambientazioni**.
 
 * **ChatGPT** per:
-  * **validare le scelte architetturali** alla luce dei principi **SOLID** (responsabilità delle classi,
+  * **brainstorming sulle meccaniche** di gioco;
+  * **confrontare possibili soluzioni architetturali** alla luce dei principi **SOLID** (responsabilità delle classi,
     separazione tra modello, motore di gioco, persistenza e interfaccia grafica);
-  * chiarire dubbi puntuali e confrontare possibili alternative di design, poi valutate e decise manualmente.
+  * la **revisione della documentazione** del progetto e della **Wiki**;
+  * il **supporto nel debugging**.
 
 In tutti i casi il materiale prodotto dall'AI (immagini e suggerimenti) è stato **rielaborato e integrato
 manualmente** nel progetto: gli asset grafici sono stati selezionati e adattati, mentre i suggerimenti
