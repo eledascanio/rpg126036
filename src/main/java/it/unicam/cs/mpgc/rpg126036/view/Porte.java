@@ -30,8 +30,9 @@ import java.util.Optional;
  * </ul>
  *
  * <p>Estratta dalla {@link ExplorationView} per isolare questa porzione di trama:
- * si appoggia alla schermata (collaboratore) per registrare gli elementi, mostrare
- * enigmi/dialoghi e seguire le transizioni, senza duplicarne l'infrastruttura.</p>
+ * usa i ruoli {@link ServiziMappa} (registrazione degli elementi), {@link ServiziDialoghi}
+ * e {@link ServiziOverlay} (avvisi ed enigma) e {@link ServiziProgressione} (HUD,
+ * avanzamento), non l'intera regia (ISP).</p>
  */
 final class Porte {
 
@@ -47,7 +48,10 @@ final class Porte {
     // Energia persa forzando la porta dell'Aula B (via di riserva se l'addetto non aiuta).
     private static final int COSTO_FORZA_PORTA_AULA_B = 30;
 
-    private final RegiaEsplorazione view;
+    private final ServiziMappa mappa;
+    private final ServiziDialoghi dialoghi;
+    private final ServiziOverlay overlay;
+    private final ServiziProgressione progressione;
     private final GameState stato;
     private final GameEngine engine;
     private final double larghezzaMappa;
@@ -60,15 +64,19 @@ final class Porte {
     private ElementoScena portaPoloB;
 
     /**
-     * @param view           la schermata di esplorazione che offre i servizi di scena
+     * @param regia          la regia della scena, da cui si attingono i ruoli usati
      * @param stato          lo stato di gioco (giocatore, inventario, diario, flag)
      * @param engine         il motore di gioco (game over, avanzamento)
      * @param larghezzaMappa larghezza della mappa, per posizionare le porte
      * @param altezzaMappa   altezza della mappa, per posizionare le porte
      */
-    Porte(RegiaEsplorazione view, GameState stato, GameEngine engine,
+    Porte(RegiaEsplorazione regia, GameState stato, GameEngine engine,
           double larghezzaMappa, double altezzaMappa) {
-        this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
+        Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        this.mappa = regia;
+        this.dialoghi = regia;
+        this.overlay = regia;
+        this.progressione = regia;
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
         this.larghezzaMappa = larghezzaMappa;
@@ -169,14 +177,14 @@ final class Porte {
         elemento.posizioneFissa = true;
         elemento.azione = () -> {
             if (isEnigmaPortaSbloccato()) {
-                view.mostraEnigma(puzzle, elemento);
+                overlay.mostraEnigma(puzzle, elemento);
             } else {
-                view.mostraDialogo("", "Non puoi ancora entrare qui.");
+                dialoghi.mostraDialogo("", "Non puoi ancora entrare qui.");
             }
         };
         elemento.setVisibile(false);
         portaPoloA = elemento;
-        view.registra(elemento);
+        mappa.registra(elemento);
     }
 
     /**
@@ -188,10 +196,10 @@ final class Porte {
         ElementoScena elemento = new ElementoScena(TipoElemento.PORTA, "",
                 "Esamina la porta del Polo B", Color.web("#9b59b6"));
         elemento.posizioneFissa = true;
-        elemento.azione = () -> view.mostraDialogo("", "Non puoi ancora entrare qui.");
+        elemento.azione = () -> dialoghi.mostraDialogo("", "Non puoi ancora entrare qui.");
         elemento.setVisibile(false);
         portaPoloB = elemento;
-        view.registra(elemento);
+        mappa.registra(elemento);
     }
 
     /**
@@ -231,9 +239,9 @@ final class Porte {
         ElementoScena elemento = new ElementoScena(TipoElemento.PORTA, "",
                 transizione.etichetta(), Color.web("#2ecc71"));
         elemento.posizioneFissa = true;
-        elemento.azione = () -> view.usaUscita(transizione);
+        elemento.azione = () -> progressione.usaUscita(transizione);
         elemento.setVisibile(false);
-        view.registra(elemento);
+        mappa.registra(elemento);
         elemento.posiziona(fx * larghezzaMappa, fy * altezzaMappa);
     }
 
@@ -248,7 +256,7 @@ final class Porte {
         elemento.posizioneFissa = true;
         elemento.azione = () -> interagisciPortaPoloB(transizione);
         elemento.setVisibile(false);
-        view.registra(elemento);
+        mappa.registra(elemento);
         elemento.posiziona(CORTILE_PORTA_B_X * larghezzaMappa, CORTILE_PORTE_Y * altezzaMappa);
     }
 
@@ -258,23 +266,23 @@ final class Porte {
      */
     private void interagisciPortaPoloB(Transition transizione) {
         if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
-            view.usaUscita(transizione);
+            progressione.usaUscita(transizione);
             return;
         }
-        view.mostraDialogo("", "La porta dell'aula risulta bloccata. Vuoi forzare la porta?",
-                view::chiudiOverlay, List.of(
+        dialoghi.mostraDialogo("", "La porta dell'aula risulta bloccata. Vuoi forzare la porta?",
+                dialoghi::chiudiOverlay, List.of(
                         new OpzioneDialogo("Forza la porta", () -> forzaPortaPoloB(transizione)),
-                        new OpzioneDialogo("Lascia stare", view::chiudiOverlay)));
+                        new OpzioneDialogo("Lascia stare", dialoghi::chiudiOverlay)));
     }
 
     /** Forza la porta del Polo B: penalità di energia, poi (se si sopravvive) si entra. */
     private void forzaPortaPoloB(Transition transizione) {
         stato.getPlayer().riduciEnergia(COSTO_FORZA_PORTA_AULA_B);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
-        view.chiudiOverlay();
-        view.usaUscita(transizione);
+        dialoghi.chiudiOverlay();
+        progressione.usaUscita(transizione);
     }
 }

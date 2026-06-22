@@ -25,16 +25,17 @@ import java.util.function.Consumer;
  *         rivela il litigante.</li>
  * </ul>
  *
- * <p>Estratti dalla {@link ExplorationView} per isolare questa porzione di trama: si
- * appoggiano alla schermata (collaboratore) per il dialog box, l'HUD, il
- * potenziamento e il pensiero d'indagine, senza duplicarne l'infrastruttura.</p>
+ * <p>Estratti dalla {@link ExplorationView} per isolare questa porzione di trama: usano
+ * i ruoli {@link ServiziDialoghi} (dialog box) e {@link ServiziProgressione} (HUD,
+ * potenziamento, pensiero d'indagine), non l'intera regia (ISP).</p>
  */
 final class DialoghiNpc {
 
     // XP guadagnati convincendo l'addetto ad aprire la porta dell'Aula B.
     private static final int ADDETTO_XP = 60;
 
-    private final RegiaEsplorazione view;
+    private final ServiziDialoghi dialoghi;
+    private final ServiziProgressione progressione;
     private final GameState stato;
     private final GameEngine engine;
     private final ContentResolver resolver;
@@ -48,13 +49,15 @@ final class DialoghiNpc {
             "addetto_pulizie", this::conAddetto);
 
     /**
-     * @param view     la schermata di esplorazione che offre i servizi di scena
+     * @param regia    la regia della scena, da cui si attingono i ruoli usati
      * @param stato    lo stato di gioco (giocatore, flag)
      * @param engine   il motore di gioco (indizi, game over)
      * @param resolver il risolutore dei contenuti (indizi associati agli NPC)
      */
-    DialoghiNpc(RegiaEsplorazione view, GameState stato, GameEngine engine, ContentResolver resolver) {
-        this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
+    DialoghiNpc(RegiaEsplorazione regia, GameState stato, GameEngine engine, ContentResolver resolver) {
+        Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        this.dialoghi = regia;
+        this.progressione = regia;
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
         this.resolver = Objects.requireNonNull(resolver, "Il resolver non puo' essere nullo.");
@@ -73,7 +76,7 @@ final class DialoghiNpc {
         Player player = stato.getPlayer();
         // Parlare con un NPC costa energia; se si esaurisce, scatta il game over.
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
@@ -87,7 +90,7 @@ final class DialoghiNpc {
                 }
             });
         }
-        view.mostraDialogo(npc.getNome(), testo.toString());
+        dialoghi.mostraDialogo(npc.getNome(), testo.toString());
     }
 
     /**
@@ -99,12 +102,12 @@ final class DialoghiNpc {
     private void conTecnico(Npc npc) {
         Player player = stato.getPlayer();
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
         if (!npc.getDialogo().isAccessibile(player)) {
-            view.mostraDialogo(npc.getNome(), npc.parla(player));
+            dialoghi.mostraDialogo(npc.getNome(), npc.parla(player));
             return;
         }
         // L'aver parlato con l'assistente abilita la via "Carisma" del PC della vittima.
@@ -124,7 +127,7 @@ final class DialoghiNpc {
     private void mostraSequenza(List<String[]> battute, int indice, Runnable alTermine) {
         String[] battuta = battute.get(indice);
         boolean ultima = indice >= battute.size() - 1;
-        view.mostraDialogo(battuta[0], battuta[1], () -> {
+        dialoghi.mostraDialogo(battuta[0], battuta[1], () -> {
             if (ultima) {
                 alTermine.run();
             } else {
@@ -140,9 +143,9 @@ final class DialoghiNpc {
     private void concludiTecnico(Npc npc) {
         var indizio = resolver.indizioDi(npc.getId());
         if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
-            view.mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo());
+            dialoghi.mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo());
         } else {
-            view.chiudiOverlay();
+            dialoghi.chiudiOverlay();
         }
     }
 
@@ -156,7 +159,7 @@ final class DialoghiNpc {
      */
     private void conAddetto(Npc npc) {
         if (stato.hasFlag(ContentResolver.FLAG_PORTA_AULA_B)) {
-            view.mostraDialogo(npc.getNome(), "Sbrigati, ti ho già aperto la porta laterale.");
+            dialoghi.mostraDialogo(npc.getNome(), "Sbrigati, ti ho già aperto la porta laterale.");
             return;
         }
         Player player = stato.getPlayer();
@@ -170,11 +173,11 @@ final class DialoghiNpc {
         }
         // Carisma insufficiente: rifiuto secco, a costo di energia.
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
-        view.mostraDialogo(npc.getNome(), NpcCatalog.ADDETTO_RIFIUTO);
+        dialoghi.mostraDialogo(npc.getNome(), NpcCatalog.ADDETTO_RIFIUTO);
     }
 
     /**
@@ -184,13 +187,13 @@ final class DialoghiNpc {
     private void concludiAddetto(Npc npc) {
         stato.setFlag(ContentResolver.FLAG_PORTA_AULA_B);
         stato.getPlayer().aggiungiXp(ADDETTO_XP);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         var indizio = resolver.indizioDi(npc.getId());
         if (indizio.isPresent() && engine.trovaIndizio(indizio.get())) {
-            view.mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo(),
-                    () -> view.mostraPotenziamentoSeDovuto(view::chiudiOverlay), List.of());
+            dialoghi.mostraDialogo("", "🔎 Nuovo indizio nel diario: " + indizio.get().titolo(),
+                    () -> progressione.mostraPotenziamentoSeDovuto(dialoghi::chiudiOverlay), List.of());
         } else {
-            view.mostraPotenziamentoSeDovuto(view::chiudiOverlay);
+            progressione.mostraPotenziamentoSeDovuto(dialoghi::chiudiOverlay);
         }
     }
 
@@ -204,7 +207,7 @@ final class DialoghiNpc {
     private void conStudenteUbriaco(Npc npc) {
         Player player = stato.getPlayer();
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
@@ -212,9 +215,9 @@ final class DialoghiNpc {
             String saluto = "Ehi, ma tu sei il rappresentante! Tieni, fatti un goccio... "
                     + "alla salute di Antonio, povero ragazzo.";
             // Al passaggio della battuta si recupera l'energia spesa per parlargli.
-            view.mostraDialogo(npc.getNome(), saluto, () -> {
+            dialoghi.mostraDialogo(npc.getNome(), saluto, () -> {
                 player.ripristinaEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
-                view.aggiornaHud();
+                progressione.aggiornaHud();
                 mostraUbriacoConScelte(npc);
             }, List.of());
         } else {
@@ -228,9 +231,9 @@ final class DialoghiNpc {
      */
     private void mostraUbriacoConScelte(Npc npc) {
         String battuta = "Ho visto Antonio discutere con qualcuno prima... mi pare.";
-        view.mostraDialogo(npc.getNome(), battuta, view::chiudiOverlay, List.of(
+        dialoghi.mostraDialogo(npc.getNome(), battuta, dialoghi::chiudiOverlay, List.of(
                 new OpzioneDialogo("Chiedi dettagli", () -> chiediDettagliUbriaco(npc)),
-                new OpzioneDialogo("Lascia stare", view::chiudiOverlay)));
+                new OpzioneDialogo("Lascia stare", dialoghi::chiudiOverlay)));
     }
 
     /**
@@ -246,13 +249,13 @@ final class DialoghiNpc {
                 testo.append("\n\n🔎 Nuovo indizio nel diario: ").append(indizio.titolo());
             }
         });
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         // Alla chiusura della battuta, se ora il giocatore ha sia la chiave sia
         // l'indizio, parte il pensiero che lo indirizza verso il PC di Antonio.
-        view.mostraDialogo(npc.getNome(), testo.toString(),
-                () -> view.mostraPotenziamentoSeDovuto(() -> {
-                    view.chiudiOverlay();
-                    view.forsePensieroIndagine();
+        dialoghi.mostraDialogo(npc.getNome(), testo.toString(),
+                () -> progressione.mostraPotenziamentoSeDovuto(() -> {
+                    dialoghi.chiudiOverlay();
+                    progressione.forsePensieroIndagine();
                 }), List.of());
     }
 }

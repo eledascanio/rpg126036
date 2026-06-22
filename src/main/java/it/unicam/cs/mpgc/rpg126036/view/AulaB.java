@@ -30,9 +30,9 @@ import java.util.Objects;
  * Trovata una traccia (l'indizio), la campagna prosegue verso l'epilogo.
  *
  * <p>Estratta dalla {@link ExplorationView} per isolare questa porzione di trama
- * cablata: si appoggia alla schermata (collaboratore) per i servizi di scena —
- * torcia, dialoghi, HUD, registrazione/rimozione di elementi, potenziamento e
- * avanzamento — senza duplicarne l'infrastruttura.</p>
+ * cablata: usa i ruoli {@link ServiziTorcia} (buio), {@link ServiziMappa} (luccichii),
+ * {@link ServiziDialoghi} (scoperte) e {@link ServiziProgressione} (HUD, potenziamento,
+ * avanzamento), non l'intera regia (ISP).</p>
  */
 final class AulaB {
 
@@ -63,7 +63,10 @@ final class AulaB {
     private static final String PENSIERO_PERQUISIZIONE =
             "Dietro c'è un'incisione: E.M. Ma sono le stesse iniziali della mail!";
 
-    private final RegiaEsplorazione view;
+    private final ServiziMappa mappa;
+    private final ServiziTorcia torcia;
+    private final ServiziDialoghi dialoghi;
+    private final ServiziProgressione progressione;
     private final GameState stato;
     private final GameEngine engine;
     private final double larghezzaMappa;
@@ -73,15 +76,19 @@ final class AulaB {
     private final List<ElementoScena> luccichii = new ArrayList<>();
 
     /**
-     * @param view           la schermata di esplorazione che offre i servizi di scena
+     * @param regia          la regia della scena, da cui si attingono i ruoli usati
      * @param stato          lo stato di gioco (giocatore, flag)
      * @param engine         il motore di gioco (indizi, game over, avanzamento)
      * @param larghezzaMappa larghezza della mappa, per posizionare gli elementi
      * @param altezzaMappa   altezza della mappa, per posizionare gli elementi
      */
-    AulaB(RegiaEsplorazione view, GameState stato, GameEngine engine,
+    AulaB(RegiaEsplorazione regia, GameState stato, GameEngine engine,
           double larghezzaMappa, double altezzaMappa) {
-        this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
+        Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        this.mappa = regia;
+        this.torcia = regia;
+        this.dialoghi = regia;
+        this.progressione = regia;
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
         this.larghezzaMappa = larghezzaMappa;
@@ -100,7 +107,7 @@ final class AulaB {
             return;
         }
         luccichii.clear();
-        view.aggiungiTorcia();
+        torcia.aggiungiTorcia();
         Player player = stato.getPlayer();
         boolean investigatore = player.getStatistica(StatType.INVESTIGAZIONE) >= 2;
         boolean intuitivo = player.getStatistica(StatType.INTUIZIONE) >= 2;
@@ -121,7 +128,7 @@ final class AulaB {
             // Nessuna scorciatoia: l'unica via è perquisire l'aula a tentoni.
             aggiungiPerquisizione();
         }
-        view.aggiornaTorcia();
+        torcia.aggiornaTorcia();
     }
 
     /**
@@ -138,9 +145,9 @@ final class AulaB {
         boolean investigatore = player.getStatistica(StatType.INVESTIGAZIONE) >= 2;
         boolean intuitivo = player.getStatistica(StatType.INTUIZIONE) >= 2;
         if (intuitivo) {
-            view.mostraDialogo(player.getNome(), PENSIERO_CHIAVI);
+            dialoghi.mostraDialogo(player.getNome(), PENSIERO_CHIAVI);
         } else if (investigatore) {
-            view.mostraDialogo(player.getNome(), PENSIERO_LUCCICHIO);
+            dialoghi.mostraDialogo(player.getNome(), PENSIERO_LUCCICHIO);
         } else {
             mostraPerquisizione();
         }
@@ -178,12 +185,12 @@ final class AulaB {
         pulsazione.setAutoReverse(true);
         pulsazione.setCycleCount(Animation.INDEFINITE);
         pulsazione.play();
-        view.registraAnimazione(pulsazione);
+        mappa.registraAnimazione(pulsazione);
 
         ElementoScena elemento = new ElementoScena(TipoElemento.OGGETTO, etichettaAzione, luccichio);
         elemento.posizioneFissa = true;
         elemento.azione = azione;
-        view.registra(elemento);
+        mappa.registra(elemento);
         elemento.posiziona(fx * larghezzaMappa, fy * altezzaMappa);
         luccichii.add(elemento);
         return elemento;
@@ -199,7 +206,7 @@ final class AulaB {
         elemento.posizioneFissa = true;
         elemento.azione = this::mostraPerquisizione;
         elemento.setVisibile(false);
-        view.registra(elemento);
+        mappa.registra(elemento);
         elemento.posiziona(0.50 * larghezzaMappa, 0.55 * altezzaMappa);
     }
 
@@ -208,12 +215,12 @@ final class AulaB {
      * registra l'indizio, assegna {@value #XP_INDIZIO} XP e toglie il luccichio.
      */
     private void trovaOrologio(ElementoScena luccichio) {
-        view.mostraDialogo("", TESTO_OROLOGIO, () -> {
+        dialoghi.mostraDialogo("", TESTO_OROLOGIO, () -> {
             engine.trovaIndizio(ClueCatalog.orologio());
             stato.getPlayer().aggiungiXp(XP_INDIZIO);
-            view.aggiornaHud();
+            progressione.aggiornaHud();
             rimuoviLuccichio(luccichio);
-            view.mostraPotenziamentoSeDovuto(this::proseguiOFine);
+            progressione.mostraPotenziamentoSeDovuto(this::proseguiOFine);
         }, List.of());
     }
 
@@ -223,22 +230,22 @@ final class AulaB {
      * del luccichio.
      */
     private void trovaTessuto(ElementoScena luccichio) {
-        view.mostraDialogo("", TESTO_TESSUTO,
-                () -> view.mostraDialogo(stato.getPlayer().getNome(), PENSIERO_TESSUTO, () -> {
+        dialoghi.mostraDialogo("", TESTO_TESSUTO,
+                () -> dialoghi.mostraDialogo(stato.getPlayer().getNome(), PENSIERO_TESSUTO, () -> {
                     engine.trovaIndizio(ClueCatalog.tessuto());
                     stato.getPlayer().aggiungiXp(XP_INDIZIO);
-                    view.aggiornaHud();
+                    progressione.aggiornaHud();
                     rimuoviLuccichio(luccichio);
-                    view.mostraPotenziamentoSeDovuto(this::proseguiOFine);
+                    progressione.mostraPotenziamentoSeDovuto(this::proseguiOFine);
                 }, List.of()), List.of());
     }
 
     /** Chiede se perquisire l'Aula B (via senza scorciatoie). */
     private void mostraPerquisizione() {
-        view.mostraDialogo("", TESTO_PERQUISIZIONE, view::chiudiOverlay, List.of(
+        dialoghi.mostraDialogo("", TESTO_PERQUISIZIONE, dialoghi::chiudiOverlay, List.of(
                 new OpzioneDialogo("Perquisisci (-" + COSTO_PERQUISIZIONE + " energia)",
                         this::eseguiPerquisizione),
-                new OpzioneDialogo("Non ora", view::chiudiOverlay)));
+                new OpzioneDialogo("Non ora", dialoghi::chiudiOverlay)));
     }
 
     /**
@@ -248,19 +255,19 @@ final class AulaB {
      */
     private void eseguiPerquisizione() {
         stato.getPlayer().riduciEnergia(COSTO_PERQUISIZIONE);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
         // Prima il ritrovamento a terra, poi lo stesso identico pensiero della via
         // Investigazione sull'orologio (incisione "EM", le iniziali della mail).
-        view.mostraDialogo("", TESTO_PERQUISIZIONE_ESITO,
-                () -> view.mostraDialogo(stato.getPlayer().getNome(), PENSIERO_PERQUISIZIONE, () -> {
+        dialoghi.mostraDialogo("", TESTO_PERQUISIZIONE_ESITO,
+                () -> dialoghi.mostraDialogo(stato.getPlayer().getNome(), PENSIERO_PERQUISIZIONE, () -> {
                     engine.trovaIndizio(ClueCatalog.orologio());
                     stato.getPlayer().aggiungiXp(XP_PERQUISIZIONE);
-                    view.aggiornaHud();
-                    view.mostraPotenziamentoSeDovuto(() -> {
-                        view.chiudiOverlay();
+                    progressione.aggiornaHud();
+                    progressione.mostraPotenziamentoSeDovuto(() -> {
+                        dialoghi.chiudiOverlay();
                         concludi();
                     });
                 }, List.of()), List.of());
@@ -268,7 +275,7 @@ final class AulaB {
 
     /** Rimuove un luccichio raccolto dalla mappa e dall'elenco di quelli da trovare. */
     private void rimuoviLuccichio(ElementoScena luccichio) {
-        view.rimuoviElemento(luccichio);
+        mappa.rimuoviElemento(luccichio);
         luccichii.remove(luccichio);
     }
 
@@ -278,7 +285,7 @@ final class AulaB {
      * si conclude.
      */
     private void proseguiOFine() {
-        view.chiudiOverlay();
+        dialoghi.chiudiOverlay();
         if (luccichii.isEmpty()) {
             concludi();
         }
@@ -291,6 +298,6 @@ final class AulaB {
     private void concludi() {
         // Avanza all'epilogo (che fa scattare la fine partita) senza ricostruire la
         // vista: l'Aula B al buio resta sotto l'overlay di fine campagna.
-        view.avanzaSenzaRicostruire("epilogo");
+        progressione.avanzaSenzaRicostruire("epilogo");
     }
 }

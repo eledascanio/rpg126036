@@ -31,12 +31,17 @@ import java.util.Objects;
  *
  * <p>Le regole numeriche (binario, soluzione, costi, XP) vivono nel
  * {@link PcVittimaPuzzle}: questa classe vi applica gli effetti senza duplicarli.
- * Estratta dalla {@link ExplorationView} per isolare la trama, si appoggia alla
- * schermata (collaboratore) per overlay, dialoghi, HUD, traguardi e avanzamento.</p>
+ * Estratta dalla {@link ExplorationView} per isolare la trama, usa i ruoli
+ * {@link ServiziMappa}, {@link ServiziDialoghi}, {@link ServiziOverlay} (pannelli del
+ * terminale) e {@link ServiziProgressione} (HUD, traguardi, avanzamento), non l'intera
+ * regia (ISP).</p>
  */
 final class PcVittima {
 
-    private final RegiaEsplorazione view;
+    private final ServiziMappa mappa;
+    private final ServiziDialoghi dialoghi;
+    private final ServiziOverlay overlay;
+    private final ServiziProgressione progressione;
     private final GameState stato;
     private final GameEngine engine;
     private final AchievementManager achievementManager;
@@ -51,16 +56,20 @@ final class PcVittima {
     private boolean pcSbagliatoToccato;
 
     /**
-     * @param view               la schermata di esplorazione che offre i servizi di scena
+     * @param regia              la regia della scena, da cui si attingono i ruoli usati
      * @param stato              lo stato di gioco (giocatore, flag)
      * @param engine             il motore di gioco (indizi, game over, avanzamento)
      * @param achievementManager il gestore dei traguardi ("Cercatore d'oro")
      * @param larghezzaMappa     larghezza della mappa, per posizionare i PC
      * @param altezzaMappa       altezza della mappa, per posizionare i PC
      */
-    PcVittima(RegiaEsplorazione view, GameState stato, GameEngine engine,
+    PcVittima(RegiaEsplorazione regia, GameState stato, GameEngine engine,
               AchievementManager achievementManager, double larghezzaMappa, double altezzaMappa) {
-        this.view = Objects.requireNonNull(view, "La schermata non puo' essere nulla.");
+        Objects.requireNonNull(regia, "La regia non puo' essere nulla.");
+        this.mappa = regia;
+        this.dialoghi = regia;
+        this.overlay = regia;
+        this.progressione = regia;
         this.stato = Objects.requireNonNull(stato, "Lo stato non puo' essere nullo.");
         this.engine = Objects.requireNonNull(engine, "Il motore non puo' essere nullo.");
         this.achievementManager =
@@ -110,7 +119,7 @@ final class PcVittima {
             elemento.posizioneFissa = true;
             elemento.azione = corretto ? () -> apriPc(elemento) : this::pcSbagliato;
             elemento.setVisibile(false);
-            view.registra(elemento);
+            mappa.registra(elemento);
             elemento.posiziona(posizioni[i][0] * larghezzaMappa, posizioni[i][1] * altezzaMappa);
         }
     }
@@ -134,7 +143,7 @@ final class PcVittima {
         if (!pcSbagliatoToccato) {
             achievementManager.segnalaPcVittimaAlPrimoColpo();
         }
-        view.annunciaTraguardoSePresente(() -> procediApertura(elemento));
+        progressione.annunciaTraguardoSePresente(() -> procediApertura(elemento));
     }
 
     /** Apertura vera e propria del terminale, secondo le vie disponibili. */
@@ -142,8 +151,8 @@ final class PcVittima {
         Player player = stato.getPlayer();
         if (stato.hasFlag(ContentResolver.FLAG_ASSISTENTE)) {
             pcPuzzle.usaPasswordAssistente(player);
-            view.aggiornaHud();
-            view.mostraDialogo("", "Hai inserito la password.", () -> risolto(elemento), List.of());
+            progressione.aggiornaHud();
+            dialoghi.mostraDialogo("", "Hai inserito la password.", () -> risolto(elemento), List.of());
             return;
         }
         boolean investigatore = player.getStatistica(StatType.INVESTIGAZIONE) >= 1;
@@ -178,7 +187,7 @@ final class PcVittima {
         cerca.setOnAction(e -> cercaIndizi(elemento));
 
         pannello.getChildren().addAll(analizza, cerca, bottoneForzaBruta(elemento), bottoneAnnulla());
-        view.mostraOverlay(view.velo(pannello), true);
+        overlay.mostraOverlay(overlay.velo(pannello), true);
     }
 
     /**
@@ -198,9 +207,9 @@ final class PcVittima {
 
         VBox tastierino = TastierinoNumerico.crea(2, codice -> {
             PuzzleOutcome risultato = pcPuzzle.tenta(player, codice);
-            view.aggiornaHud();
+            progressione.aggiornaHud();
             if (risultato.risolto()) {
-                view.mostraDialogo("", "Hai inserito la password.", () -> risolto(elemento), List.of());
+                dialoghi.mostraDialogo("", "Hai inserito la password.", () -> risolto(elemento), List.of());
                 return true;
             }
             if (engine.verificaGameOver()) {
@@ -211,7 +220,7 @@ final class PcVittima {
         });
 
         pannello.getChildren().addAll(tastierino, bottoneForzaBruta(elemento), bottoneAnnulla(), esito);
-        view.mostraOverlay(view.velo(pannello), true);
+        overlay.mostraOverlay(overlay.velo(pannello), true);
     }
 
     /**
@@ -220,8 +229,8 @@ final class PcVittima {
      */
     private void cercaIndizi(ElementoScena elemento) {
         PuzzleOutcome risultato = pcPuzzle.cercaIndizi(stato.getPlayer());
-        view.aggiornaHud();
-        view.mostraDialogo("", risultato.messaggio(), () -> risolto(elemento), List.of());
+        progressione.aggiornaHud();
+        dialoghi.mostraDialogo("", risultato.messaggio(), () -> risolto(elemento), List.of());
     }
 
     /**
@@ -230,7 +239,7 @@ final class PcVittima {
     private void mostraForzaBruta(ElementoScena elemento) {
         VBox pannello = pannello("Il terminale è protetto da una password che non conosci.");
         pannello.getChildren().addAll(bottoneForzaBruta(elemento), bottoneAnnulla());
-        view.mostraOverlay(view.velo(pannello), true);
+        overlay.mostraOverlay(overlay.velo(pannello), true);
     }
 
     /** Pannello base (titolo + testo) condiviso dalle schermate del PC della vittima. */
@@ -263,7 +272,7 @@ final class PcVittima {
         Button annulla = new Button("Annulla");
         annulla.getStyleClass().add("game-button");
         annulla.setMaxWidth(380);
-        annulla.setOnAction(e -> view.chiudiOverlay());
+        annulla.setOnAction(e -> dialoghi.chiudiOverlay());
         return annulla;
     }
 
@@ -273,11 +282,11 @@ final class PcVittima {
         forza.getStyleClass().add("game-button");
         forza.setOnAction(e -> {
             pcPuzzle.forzaBruta(stato.getPlayer());
-            view.aggiornaHud();
+            progressione.aggiornaHud();
             if (engine.verificaGameOver()) {
                 return;
             }
-            view.mostraDialogo("", "Dopo svariati tentativi il terminale cede.",
+            dialoghi.mostraDialogo("", "Dopo svariati tentativi il terminale cede.",
                     () -> risolto(elemento), List.of());
         });
         return forza;
@@ -292,11 +301,11 @@ final class PcVittima {
         pcSbagliatoToccato = true;
         Player player = stato.getPlayer();
         player.riduciEnergia(RegiaEsplorazione.COSTO_ENERGIA_DIALOGO);
-        view.aggiornaHud();
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
-        view.mostraDialogo("", "PC sbagliato.");
+        dialoghi.mostraDialogo("", "PC sbagliato.");
     }
 
     /**
@@ -307,8 +316,8 @@ final class PcVittima {
     private void risolto(ElementoScena elemento) {
         // Gli XP dello sblocco sono già stati assegnati dalla via di risoluzione
         // (PcVittimaPuzzle), qualunque essa sia stata.
-        view.rimuoviElemento(elemento);
-        view.aggiornaHud();
+        mappa.rimuoviElemento(elemento);
+        progressione.aggiornaHud();
         if (engine.verificaGameOver()) {
             return;
         }
@@ -334,7 +343,7 @@ final class PcVittima {
         Button chiudi = new Button("Chiudi");
         chiudi.getStyleClass().add("game-button");
         chiudi.setOnAction(e -> {
-            view.chiudiOverlay();
+            dialoghi.chiudiOverlay();
             mostraPensieroEmail();
         });
 
@@ -351,7 +360,7 @@ final class PcVittima {
         // Riempie lo schermo, così il mittente resta ancorato in alto.
         mail.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         mail.getStyleClass().add("pixel-font");
-        view.mostraOverlay(view.velo(mail), false);
+        overlay.mostraOverlay(overlay.velo(mail), false);
     }
 
     /**
@@ -359,7 +368,7 @@ final class PcVittima {
      * combaciano con Alex. Alla chiusura conclude il capitolo.
      */
     private void mostraPensieroEmail() {
-        view.mostraDialogo(stato.getPlayer().getNome(),
+        dialoghi.mostraDialogo(stato.getPlayer().getNome(),
                 "Mmhhh… EM... delle iniziali? Non corrispondono però al nome di Alex con cui era "
                         + "stato visto litigare prima.",
                 this::concludiCapitolo, List.of());
@@ -375,10 +384,10 @@ final class PcVittima {
     private void concludiCapitolo() {
         // Completa il capitolo sulla scena terminale dell'email senza ricostruire la
         // vista: lo sfondo resta l'aula LA1 già presente sotto gli overlay.
-        view.avanzaSenzaRicostruire("email_vittima");
+        progressione.avanzaSenzaRicostruire("email_vittima");
         // Prima l'eventuale potenziamento a 100 XP (es. dallo sblocco del PC), poi la
         // scelta di fine capitolo (potenziamento gratuito prima del capitolo 3).
-        view.mostraPotenziamentoSeDovuto(() -> view.mostraSceltaUpgrade("Capitolo completato",
+        progressione.mostraPotenziamentoSeDovuto(() -> progressione.mostraSceltaUpgrade("Capitolo completato",
                 "Scegli una statistica da potenziare prima del prossimo capitolo:",
                 engine::concludiCapitolo));
     }
